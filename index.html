@@ -34,6 +34,10 @@
     .legend { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .cols2x5 { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .col { display:grid; grid-template-rows: repeat(5, auto); gap: 12px; }
+    .panel-title { font-weight: 700; margin-bottom: 12px; font-size: 15px; }
+    .checklist { display:flex; flex-direction:column; gap: 10px; }
+    .checklist label { display:flex; align-items:center; gap: 10px; font-size: 14px; color: var(--ink); }
+    .checklist input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
     @media (max-width: 800px) { .grid, .cols2x5 { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -61,6 +65,14 @@
         </div>
       </div>
       <div class="note" style="margin-top:8px;">Note: Legacy <code>.doc</code> and <code>.xls</code> are not supported. Convert to .docx/.xlsx before uploading.</div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;" aria-labelledby="checkfor-label">
+      <div id="checkfor-label" class="panel-title">Check For:</div>
+      <div class="checklist" role="group" aria-labelledby="checkfor-label">
+        <label><input type="checkbox" />Administration-Flagged Words &amp; Phrases</label>
+        <label><input type="checkbox" />Indicators of Artificial Intelligence Use</label>
+      </div>
     </div>
 
     <div class="panel" style="margin-top:16px;">
