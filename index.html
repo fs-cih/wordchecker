@@ -5,31 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Keyword Scanner — Word/Excel (10 uploads)</title>
   <style>
-    :root { --bg:#0b1020; --card:#121a33; --ink:#e9edf7; --muted:#9fb0d9; --accent:#7aa2ff; --bad:#ff7a7a; --ok:#6ee7a3; }
+    :root { --bg:#f5f6fb; --card:#ffffff; --ink:#1a2134; --muted:#5d6783; --accent:#3b6ee7; --bad:#d34242; --ok:#2f9c62; }
     html, body { height: 100%; }
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; color: var(--ink); background: linear-gradient(180deg, #0b1020, #0e1430 55%, #0b1020); }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; color: var(--ink); background: var(--bg); }
     .wrap { max-width: 1100px; margin: 32px auto; padding: 0 16px 64px; }
-    .title { font-size: clamp(20px, 3vw, 32px); font-weight: 800; letter-spacing: .3px; }
+    .title { font-size: clamp(20px, 3vw, 32px); font-weight: 400; letter-spacing: .3px; }
     .subtitle { color: var(--muted); margin-top: 6px; }
-    .panel { background: var(--card); border: 1px solid rgba(255,255,255,.07); border-radius: 16px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .panel { background: var(--card); border: 1px solid rgba(17,24,39,.08); border-radius: 16px; padding: 16px; box-shadow: 0 12px 24px rgba(15,23,42,.08); }
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .slot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding: 10px 12px; border: 1px dashed rgba(255,255,255,.18); border-radius: 12px; background: rgba(255,255,255,.03); }
+    .slot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding: 10px 12px; border: 1px dashed rgba(17,24,39,.12); border-radius: 12px; background: rgba(59,110,231,.05); }
     .slot label { font-size: 13px; color: var(--muted); }
-    .slot input[type=file] { flex: 1; border: none; padding: 6px; border-radius: 8px; background: rgba(255,255,255,.06); color: var(--ink); }
-    .slot input[type=file]::file-selector-button { margin-right: 10px; border: none; background: var(--accent); color: #081028; padding: 6px 10px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+    .slot input[type=file] { flex: 1; border: 1px solid rgba(17,24,39,.1); padding: 6px; border-radius: 8px; background: rgba(255,255,255,.85); color: var(--ink); }
+    .slot input[type=file]::file-selector-button { margin-right: 10px; border: none; background: var(--accent); color: #f8f9ff; padding: 6px 10px; border-radius: 8px; font-weight: 600; cursor: pointer; }
     .note { font-size: 12px; color: var(--muted); }
     .controls { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 16px 0; }
-    textarea { width: 100%; min-height: 80px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); padding: 10px 12px; background: rgba(255,255,255,.04); color: var(--ink); }
-    button.primary { background: var(--accent); color: #081028; border: none; border-radius: 12px; padding: 12px 18px; font-weight: 800; cursor: pointer; }
+    textarea { width: 100%; min-height: 80px; border-radius: 12px; border: 1px solid rgba(17,24,39,.12); padding: 10px 12px; background: rgba(59,110,231,.04); color: var(--ink); }
+    button.primary { background: var(--accent); color: #f8f9ff; border: none; border-radius: 12px; padding: 12px 18px; font-weight: 600; cursor: pointer; }
     button.primary:disabled { opacity: .6; cursor: not-allowed; }
     .results { margin-top: 20px; }
     table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
-    thead th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: rgba(255,255,255,.05); padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,.1); }
-    tbody td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,.06); vertical-align: top; }
-    .pill { display:inline-flex; align-items:center; gap:8px; padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.07); font-size: 12px; }
-    .ok { background: rgba(110,231,163,.15); color: #c0ffd9; }
-    .bad { background: rgba(255,122,122,.15); color: #ffd2d2; }
-    code.snip { background: rgba(0,0,0,.35); padding: 2px 6px; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
+    thead th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: rgba(59,110,231,.08); padding: 10px 10px; border-bottom: 1px solid rgba(17,24,39,.08); }
+    tbody td { padding: 12px 10px; border-bottom: 1px solid rgba(17,24,39,.08); vertical-align: top; }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding: 4px 8px; border-radius: 999px; background: rgba(59,110,231,.08); font-size: 12px; color: var(--ink); }
+    .ok { background: rgba(47,156,98,.12); color: #1a6a40; }
+    .bad { background: rgba(211,66,66,.12); color: #8b1d1d; }
+    code.snip { background: rgba(15,23,42,.08); padding: 2px 6px; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; color: var(--ink); }
     .footer { margin-top: 28px; color: var(--muted); font-size: 12px; }
     .legend { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .cols2x5 { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -40,7 +40,7 @@
 <body>
   <div class="wrap">
     <div class="title">Keyword Scanner</div>
-    <div class="subtitle">Upload up to 10 files (<strong>Word .docx</strong> or <strong>Excel .xlsx</strong>). We'll search them locally in your browser for the words/phrases you provide — no files are uploaded anywhere.</div>
+    <div class="subtitle">Upload up to 10 Word or Excel files. This website will search them locally on your browser for pre-identified words and phrases. No files are uploaded anywhere.<br /></div>
 
     <div class="panel" aria-labelledby="inputs-label">
       <div id="inputs-label" class="note" style="margin-bottom:8px;">10 upload boxes · two columns of five · one file each</div>
