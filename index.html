@@ -37,6 +37,7 @@
     .checklist { display:flex; flex-direction:column; gap: 10px; }
     .checklist label { display:flex; align-items:center; gap: 10px; font-size: 14px; color: var(--ink); }
     .checklist input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+    .check-actions { margin-top: 16px; }
     @media (max-width: 800px) { .grid, .cols2x5 { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -66,26 +67,15 @@
     </div>
 
     <div class="panel" style="margin-top:16px;" aria-labelledby="checkfor-label">
-      <div id="checkfor-label" class="panel-title">Check For:</div>
+      <div id="checkfor-label" class="panel-title">Check For</div>
       <div class="checklist" role="group" aria-labelledby="checkfor-label">
-        <label><input type="checkbox" />Administration-Flagged Words &amp; Phrases</label>
-        <label><input type="checkbox" />Indicators of Artificial Intelligence Use</label>
+        <label><input class="term-group" type="checkbox" value="admin" checked />Administration-Flagged Words &amp; Phrases</label>
+        <label><input class="term-group" type="checkbox" value="ai" checked />Indicators of Artificial Intelligence Use</label>
       </div>
-    </div>
-
-    <div class="panel" style="margin-top:16px;">
-      <div class="legend">
-        <div style="font-weight:700;">Keywords / Phrases to find</div>
-        <span class="pill">Case-insensitive</span>
-        <span class="pill">One per line or comma‑separated</span>
+      <div class="check-actions">
+        <button id="go" class="primary">Analyze files</button>
       </div>
-      <div class="controls">
-        <textarea id="terms" placeholder="e.g. diabetes\n" aria-label="Keywords to search"></textarea>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button id="go" class="primary">Analyze files</button>
-        </div>
-      </div>
-      <div class="note">We count matches and show short context snippets for each term in each file.</div>
+      <div class="note">We automatically scan the selected categories using the maintained keyword lists.</div>
     </div>
 
     <div id="results" class="results"></div>
@@ -105,13 +95,609 @@
     const btn = document.getElementById('go');
     const resultsDiv = document.getElementById('results');
 
-    function parseTerms(raw) {
-      return Array.from(new Set(
-        raw
-          .split(/\n|,/)
-          .map(s => s.trim())
-          .filter(Boolean)
-      ));
+    const ADMIN_TERMS = `
+2S
+2S+
+Accessibility
+Accessible
+Activism
+Activist
+Activists
+Advocacy
+Advocate
+Advocates
+Affirm
+Affirming
+Affirming care
+Allied
+All-inclusive
+Ally
+Allyship
+Anti-racism
+Antiracist
+Anti-racist
+Assigned at birth
+Assigned female at birth
+Assigned male at birth
+At risk
+At-risk
+Barrier
+Barriers
+Belong
+Belonging
+Bias
+Biased
+Biased toward
+Biases
+Biases toward
+Biases towards
+Biologically female
+Biologically male
+BIPOC
+Birthing people
+Black
+Breastfeed + people
+Breastfeed + person
+Breastfeeding people
+Breastfeeding person
+Chestfeed
+Chestfeed + people
+Chestfeed + person
+Chestfeeding people
+Clean energy
+Climate crisis
+Climate emergency
+Climate science
+Commercial sex worker
+Community diversity
+Community equity
+Confirmation bias
+Cultural
+Cultural competence
+Cultural differences
+Cultural heritage
+Cultural safety
+Cultural sensitivity
+Culturally
+Culturally appropriate
+Culturally responsive
+Culture
+Decolonize
+Decolonized
+Decolonizing
+DEI
+DEIA
+DEIAB
+DEIJ
+Disabilities
+Disability
+Disabled
+Discriminate
+Discriminated
+Discriminates
+Discrimination
+Discriminatory
+Disparity
+Diverse
+Diverse backgrounds
+Diverse communities
+Diverse community
+Diverse group
+Diverse groups
+Diversified
+Diversify
+Diversifying
+Diversity
+Enhance the diversity
+Enhancing diversity
+Environmental quality
+Equal opportunity
+Equality
+Equitable
+Equitableness
+Equity
+Ethnic
+Ethnicity
+Exclude
+Excluded
+Exclusion
+Expression
+Expressive
+Expressiveness
+Female
+Females
+Feminism
+Feminist
+Feminists
+Foster
+Fostering inclusivity
+Gender
+Gender affirming
+Gender based
+Gender based violence (GBV)
+Gender diversity
+Gender identity
+Gender ideology
+Gender-affirming
+Genders
+Global warming
+Gulf of Mexico
+Hate
+Hate speech
+Health disparity
+Health equity
+Health inequality
+High-risk
+Hispanic minority
+Historically
+Identifies
+Identities
+Identity
+Immigrant
+Immigrants
+Implicit bias
+Implicit biases
+Inclusion
+Inclusive
+Inclusive leadership
+Inclusiveness
+Inclusivity
+Increase diversity
+Increase the diversity
+Indigenous
+Indigenous community
+Inequalities
+Inequality
+Inequitable
+Inequities
+Inequity
+Injustice
+Institutional
+Intersectional
+Intersectionality
+Key groups
+Key people
+Key populations
+Latinx
+LGBT
+LGBTQ
+LGBTQIA
+Marginalize
+Marginalized
+Marginalizing
+Men who have sex with men
+Mental health
+Minorities
+Minority
+Most risk
+MSM
+Multicultural
+Multiculture
+Multicultured
+Mx
+Mx.
+Native American
+Non binary
+Nonbinary
+Non-binary
+Oppressed
+Oppresses
+Oppression
+Oppressive
+Orientation
+Orientations
+People + uterus
+People centered
+People-centered care
+Person centered
+Person-centered
+Person-centered care
+Polarization
+Polarized
+Polarizes
+Political
+Pollution
+Population
+Pregnant people
+Pregnant person
+Pregnant persons
+Prejudice
+Prejudiced
+Prejudices
+Privilege
+Privileges
+Priviliged
+Promote diversity
+Promoting diversity
+Pronoun
+Pronouns
+Prostitute
+Race
+Race and ethnicity
+Races
+Racial
+Racial diversity
+Racial identity
+Racial inequality
+Racial justice
+Racially
+Racism
+Segregated
+Segregates
+Segregation
+Sense of belonging
+Sex
+Sexes
+Sexual preferences
+Sexuality
+Social justice
+Sociocultural
+Socio-cultural
+Socioeconomic
+Socio-economic
+Status
+Statuses
+Stereotype
+Stereotypes
+Stereotypical
+Systemic
+Systemically
+They/them
+Traditional
+Traditions
+Trans
+Transgender
+Transgendered
+Transsexual
+Trauma
+Traumatic
+Tribal
+Unconscious bias
+Underappreciated
+Under-appreciated
+Underprivileged
+Under-priviliged
+Underrepresentation
+Under-representation
+Underrepresented
+Under-represented
+Underserved
+Under-served
+Undervalued
+Under-valued
+Undocumented
+Victim
+Victimization
+Victims
+Vulnerable population
+Vulnerable populations
+Women
+Women and underrepresented
+Women who have sex with women
+Womyn
+`.trim().split('\n').map(line => line.trim()).filter(Boolean);
+
+    const AI_TERMS = `
+acknowledges
+acknowledging
+addresses
+adept
+adhered
+adhering
+advancement
+advancements
+advancing
+advocates
+advocating
+affirming
+afflicted
+aiding
+akin
+align
+aligning
+aligns
+alongside
+amidst
+assessments
+attains
+attributed
+augmenting
+avenue
+avenues
+bolster
+bolstered
+bolstering
+broader
+burgeoning
+capabilities
+capitalizing
+categorized
+categorizes
+categorizing
+combating
+commendable
+compelling
+complicates
+complicating
+comprehending
+comprising
+consequently
+consolidates
+contributing
+conversely
+correlating
+crafted
+crafting
+culminating
+customizing
+delineates
+delve
+delved
+delves
+delving
+demonstrating
+dependability
+dependable
+detailing
+detrimentally
+diminishes
+diminishing
+discern
+discerned
+discernible
+discerning
+displaying
+disrupts
+distinctions
+distinctive
+elevate
+elevates
+elevating
+elucidate
+elucidates
+elucidating
+embracing
+emerges
+emphasises
+emphasising
+emphasize
+emphasizes
+emphasizing
+employing
+employs
+empowers
+emulating
+emulation
+enabling
+encapsulates
+encompass
+encompassed
+encompasses
+encompassing
+endeavors
+endeavours
+enduring
+enhancements
+enhances
+ensuring
+equipping
+escalating
+evaluates
+evolving
+exacerbating
+examines
+exceeding
+excels
+exceptional
+exceptionally
+exerting
+exhibiting
+exhibits
+expedite
+expediting
+exploration
+explores
+facilitated
+facilitates
+facilitating
+featuring
+formidable
+fostering
+fosters
+foundational
+furnish
+garnered
+garnering
+gauged
+grappling
+groundbreaking
+groundwork
+harness
+harnesses
+harnessing
+heighten
+heightened
+hinder
+hinges
+hinting
+hold
+holds
+illuminates
+illuminating
+imbalances
+impacting
+impede
+impeding
+imperative
+impressive
+inadequately
+incorporates
+incorporating
+influencing
+inherent
+initially
+innovative
+inquiries
+integrates
+integrating
+integration
+interconnectedness
+interplay
+intricacies
+intricate
+intricately
+introduces
+invaluable
+investigates
+involves
+juxtaposed
+leverages
+leveraging
+maintaining
+merges
+methodologies
+meticulous
+meticulously
+multifaceted
+necessitate
+necessitates
+necessitating
+necessity
+notable
+noteworthy
+nuanced
+nuances
+nytimes
+offering
+optimizing
+orchestrating
+outlines
+overlook
+overlooking
+paving
+perative
+persist
+pinpoint
+pinpointed
+pinpointing
+pioneering
+pioneers
+pivotal
+poised
+pose
+posed
+poses
+posing
+predominantly
+preserving
+pressing
+promise
+pronounced
+propelling
+realm
+realms
+recognizing
+refine
+refines
+refining
+remarkable
+renowned
+revealing
+reveals
+revolutionize
+revolutionizing
+revolves
+scrutinize
+scrutinized
+scrutinizing
+seamless
+seamlessly
+seeks
+serves
+serving
+shaping
+shedding
+showcased
+showcases
+showcasing
+signifying
+solidify
+spanned
+spanning
+spurred
+stands
+stemming
+strategically
+streamline
+streamlined
+streamlines
+streamlining
+struggle
+substantiated
+substantiates
+surged
+surmount
+surpass
+surpassed
+surpasses
+surpassing
+swift
+swiftly
+thorough
+transformative
+typically
+ultimately
+uncharted
+uncovering
+underexplored
+underscore
+underscored
+underscores
+underscoring
+unexplored
+unlocking
+unparalleled
+unraveling
+unveil
+unveiled
+unveiling
+unveils
+uphold
+upholding
+urging
+utilizes
+varying
+versatility
+warranting
+yielding
+`.trim().split('\n').map(line => line.trim()).filter(Boolean);
+
+    const TERM_GROUPS = {
+      admin: ADMIN_TERMS,
+      ai: AI_TERMS
+    };
+
+    const termGroupInputs = Array.from(document.querySelectorAll('.term-group'));
+
+    function expandTerm(term) {
+      const trimmed = term.trim();
+      if (!trimmed) return [];
+      if (trimmed.includes(' + ')) {
+        const collapsed = trimmed.replace(/\s*\+\s*/g, ' ').replace(/\s+/g, ' ').trim();
+        return [trimmed, collapsed];
+      }
+      return [trimmed];
+    }
+
+    function gatherTerms(groups) {
+      const bucket = [];
+      groups.forEach(group => {
+        const list = TERM_GROUPS[group] || [];
+        list.forEach(term => {
+          expandTerm(term).forEach(t => bucket.push(t));
+        });
+      });
+      return Array.from(new Set(bucket));
     }
 
     function escapeHTML(s) {
@@ -196,10 +782,11 @@
     }
 
     async function analyze() {
-      const terms = parseTerms(document.getElementById('terms').value);
+      const selectedGroups = termGroupInputs.filter(cb => cb.checked).map(cb => cb.value);
+      const terms = gatherTerms(selectedGroups);
       resultsDiv.innerHTML = '';
       if (terms.length === 0) {
-        resultsDiv.innerHTML = `<div class="panel"><div class="note">Please enter at least one keyword or phrase.</div></div>`;
+        resultsDiv.innerHTML = `<div class="panel"><div class="note">Select at least one category to scan for keywords.</div></div>`;
         return;
       }
 
