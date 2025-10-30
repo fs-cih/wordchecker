@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Keyword Scanner — Word/Excel (10 uploads)</title>
+  <style>
+    :root { --bg:#0b1020; --card:#121a33; --ink:#e9edf7; --muted:#9fb0d9; --accent:#7aa2ff; --bad:#ff7a7a; --ok:#6ee7a3; }
+    html, body { height: 100%; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; color: var(--ink); background: linear-gradient(180deg, #0b1020, #0e1430 55%, #0b1020); }
+    .wrap { max-width: 1100px; margin: 32px auto; padding: 0 16px 64px; }
+    .title { font-size: clamp(20px, 3vw, 32px); font-weight: 800; letter-spacing: .3px; }
+    .subtitle { color: var(--muted); margin-top: 6px; }
+    .panel { background: var(--card); border: 1px solid rgba(255,255,255,.07); border-radius: 16px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .slot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding: 10px 12px; border: 1px dashed rgba(255,255,255,.18); border-radius: 12px; background: rgba(255,255,255,.03); }
+    .slot label { font-size: 13px; color: var(--muted); }
+    .slot input[type=file] { flex: 1; border: none; padding: 6px; border-radius: 8px; background: rgba(255,255,255,.06); color: var(--ink); }
+    .slot input[type=file]::file-selector-button { margin-right: 10px; border: none; background: var(--accent); color: #081028; padding: 6px 10px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+    .note { font-size: 12px; color: var(--muted); }
+    .controls { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 16px 0; }
+    textarea { width: 100%; min-height: 80px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); padding: 10px 12px; background: rgba(255,255,255,.04); color: var(--ink); }
+    button.primary { background: var(--accent); color: #081028; border: none; border-radius: 12px; padding: 12px 18px; font-weight: 800; cursor: pointer; }
+    button.primary:disabled { opacity: .6; cursor: not-allowed; }
+    .results { margin-top: 20px; }
+    table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
+    thead th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: rgba(255,255,255,.05); padding: 10px 10px; border-bottom: 1px solid rgba(255,255,255,.1); }
+    tbody td { padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,.06); vertical-align: top; }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.07); font-size: 12px; }
+    .ok { background: rgba(110,231,163,.15); color: #c0ffd9; }
+    .bad { background: rgba(255,122,122,.15); color: #ffd2d2; }
+    code.snip { background: rgba(0,0,0,.35); padding: 2px 6px; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
+    .footer { margin-top: 28px; color: var(--muted); font-size: 12px; }
+    .legend { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .cols2x5 { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .col { display:grid; grid-template-rows: repeat(5, auto); gap: 12px; }
+    @media (max-width: 800px) { .grid, .cols2x5 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">Keyword Scanner</div>
+    <div class="subtitle">Upload up to 10 files (<strong>Word .docx</strong> or <strong>Excel .xlsx</strong>). We'll search them locally in your browser for the words/phrases you provide — no files are uploaded anywhere.</div>
+
+    <div class="panel" aria-labelledby="inputs-label">
+      <div id="inputs-label" class="note" style="margin-bottom:8px;">10 upload boxes · two columns of five · one file each</div>
+      <div class="cols2x5" role="group" aria-label="File inputs (10)">
+        <div class="col">
+          <div class="slot"><label>File 1</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 1 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 2</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 2 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 3</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 3 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 4</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 4 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 5</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 5 (docx/xlsx)" /></div>
+        </div>
+        <div class="col">
+          <div class="slot"><label>File 6</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 6 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 7</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 7 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 8</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 8 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 9</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 9 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 10</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 10 (docx/xlsx)" /></div>
+        </div>
+      </div>
+      <div class="note" style="margin-top:8px;">Note: Legacy <code>.doc</code> and <code>.xls</code> are not supported. Convert to .docx/.xlsx before uploading.</div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;">
+      <div class="legend">
+        <div style="font-weight:700;">Keywords / Phrases to find</div>
+        <span class="pill">Case-insensitive</span>
+        <span class="pill">One per line or comma‑separated</span>
+      </div>
+      <div class="controls">
+        <textarea id="terms" placeholder="e.g. diabetes\n" aria-label="Keywords to search"></textarea>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="go" class="primary">Analyze files</button>
+        </div>
+      </div>
+      <div class="note">We count matches and show short context snippets for each term in each file.</div>
+    </div>
+
+    <div id="results" class="results"></div>
+
+    <div class="footer">
+      <div>All processing happens locally in your browser. Safe for GitHub Pages (static hosting).</div>
+      <div>Libraries via CDN: Mammoth (.docx → text) and SheetJS/XLSX (.xlsx → text).</div>
+    </div>
+  </div>
+
+  <!-- External libs -->
+  <script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    const fileBoxes = Array.from(document.querySelectorAll('.filebox'));
+    const btn = document.getElementById('go');
+    const resultsDiv = document.getElementById('results');
+
+    function parseTerms(raw) {
+      return Array.from(new Set(
+        raw
+          .split(/\n|,/)
+          .map(s => s.trim())
+          .filter(Boolean)
+      ));
+    }
+
+    function escapeHTML(s) {
+      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    }
+
+    function buildRegex(term) {
+      // escape regex special chars in term
+      const esc = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(esc, 'gi');
+    }
+
+    async function readFileAsArrayBuffer(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = () => reject(r.error);
+        r.onload = () => resolve(r.result);
+        r.readAsArrayBuffer(file);
+      });
+    }
+
+    async function extractTextFromDocx(file) {
+      const arrayBuffer = await readFileAsArrayBuffer(file);
+      const { value } = await window.mammoth.extractRawText({ arrayBuffer });
+      return value || '';
+    }
+
+    async function extractTextFromXlsx(file) {
+      const arrayBuffer = await readFileAsArrayBuffer(file);
+      const wb = XLSX.read(arrayBuffer, { type: 'array' });
+      let out = [];
+      wb.SheetNames.forEach(name => {
+        const ws = wb.Sheets[name];
+        const csv = XLSX.utils.sheet_to_csv(ws, { blankrows: false });
+        out.push(`\n\n=== SHEET: ${name} ===\n` + csv);
+      });
+      return out.join('\n');
+    }
+
+    function makeSnippets(text, term, maxSnips = 3, context = 40) {
+      const rx = buildRegex(term);
+      const snips = [];
+      let m;
+      let guard = 0; // prevent infinite loops on zero-length matches
+      while ((m = rx.exec(text)) && snips.length < maxSnips) {
+        if (m[0].length === 0) { if (++guard > 1000) break; rx.lastIndex++; continue; }
+        const i = m.index;
+        const left = Math.max(0, i - context);
+        const right = Math.min(text.length, i + m[0].length + context);
+        const chunk = text.slice(left, right)
+          .replace(buildRegex(term), t => `[[HIT:${t}]]`);
+        snips.push('…' + chunk + '…');
+      }
+      return snips.map(s => escapeHTML(s).replace(/\[\[HIT:(.*?)\]\]/g, '<mark>$1</mark>'));
+    }
+
+    function countMatches(text, term) {
+      const rx = buildRegex(term);
+      let c = 0; let m;
+      let guard = 0;
+      while ((m = rx.exec(text))) { if (m[0].length === 0) { if (++guard > 1000) break; rx.lastIndex++; continue; } c++; }
+      return c;
+    }
+
+    function renderTable(rows) {
+      if (!rows.length) { return '<div class="panel"><div class="note">No matches found in selected files.</div></div>'; }
+      const head = `
+        <thead><tr>
+          <th style="width:22%">File</th>
+          <th style="width:18%">Term</th>
+          <th style="width:10%">Count</th>
+          <th>Snippets</th>
+        </tr></thead>`;
+      const body = rows.map(r => `
+        <tr>
+          <td>${escapeHTML(r.file)}</td>
+          <td>${escapeHTML(r.term)}</td>
+          <td><span class="pill ${r.count>0?'ok':'bad'}">${r.count}</span></td>
+          <td>${r.snips.map(s => `<code class="snip">${s}</code>`).join(' ')}</td>
+        </tr>`).join('');
+      return `<div class="panel"><table>${head}<tbody>${body}</tbody></table></div>`;
+    }
+
+    async function analyze() {
+      const terms = parseTerms(document.getElementById('terms').value);
+      resultsDiv.innerHTML = '';
+      if (terms.length === 0) {
+        resultsDiv.innerHTML = `<div class="panel"><div class="note">Please enter at least one keyword or phrase.</div></div>`;
+        return;
+      }
+
+      btn.disabled = true; btn.textContent = 'Analyzing…';
+      const chosen = fileBoxes.map(i => i.files?.[0]).filter(Boolean);
+      if (chosen.length === 0) {
+        resultsDiv.innerHTML = `<div class="panel"><div class="note">Add one or more files, then click <em>Analyze files</em>.</div></div>`;
+        btn.disabled = false; btn.textContent = 'Analyze files';
+        return;
+      }
+
+      const rows = [];
+      for (const file of chosen) {
+        try {
+          const ext = file.name.toLowerCase().split('.').pop();
+          let text = '';
+          if (ext === 'docx') text = await extractTextFromDocx(file);
+          else if (ext === 'xlsx') text = await extractTextFromXlsx(file);
+          else {
+            rows.push({ file: file.name, term: '(unsupported)', count: 0, snips: ['Unsupported file type'] });
+            continue;
+          }
+          for (const term of terms) {
+            const count = countMatches(text, term);
+            const snips = count > 0 ? makeSnippets(text, term) : [];
+            rows.push({ file: file.name, term, count, snips });
+          }
+        } catch (e) {
+          rows.push({ file: file.name, term: '(error)', count: 0, snips: [escapeHTML(String(e.message || e))] });
+        }
+      }
+
+      resultsDiv.innerHTML = renderTable(rows);
+      btn.disabled = false; btn.textContent = 'Analyze files';
+    }
+
+    btn.addEventListener('click', analyze);
+  </script>
+</body>
+</html>
