@@ -19,8 +19,10 @@
     .note { font-size: 12px; color: var(--muted); }
     .controls { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 16px 0; }
     textarea { width: 100%; min-height: 80px; border-radius: 12px; border: 1px solid rgba(17,24,39,.12); padding: 10px 12px; background: rgba(59,110,231,.04); color: var(--ink); }
-    button.primary { background: var(--accent); color: #f8f9ff; border: none; border-radius: 12px; padding: 12px 18px; font-weight: 600; cursor: pointer; }
+    button.primary { background: var(--ok); color: #f8f9ff; border: none; border-radius: 12px; padding: 12px 18px; font-weight: 600; cursor: pointer; }
     button.primary:disabled { opacity: .6; cursor: not-allowed; }
+    button.secondary { background: var(--accent); color: #f8f9ff; border: none; border-radius: 12px; padding: 12px 18px; font-weight: 600; cursor: pointer; }
+    button.secondary:disabled { opacity: .6; cursor: not-allowed; }
     .results { margin-top: 20px; }
     table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
     thead th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: rgba(59,110,231,.08); padding: 10px 10px; border-bottom: 1px solid rgba(17,24,39,.08); }
@@ -37,7 +39,7 @@
     .checklist { display:flex; flex-direction:column; gap: 10px; }
     .checklist label { display:flex; align-items:center; gap: 10px; font-size: 14px; color: var(--ink); }
     .checklist input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
-    .check-actions { margin-top: 16px; }
+    .check-actions { margin-top: 16px; display:flex; gap: 10px; }
     @media (max-width: 800px) { .grid, .cols2x5 { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -70,19 +72,18 @@
       <div id="checkfor-label" class="panel-title">Check For</div>
       <div class="checklist" role="group" aria-labelledby="checkfor-label">
         <label><input class="term-group" type="checkbox" value="admin" checked />Administration-Flagged Words &amp; Phrases</label>
-        <label><input class="term-group" type="checkbox" value="ai" checked />Indicators of Artificial Intelligence Use</label>
+        <label><input class="term-group" type="checkbox" value="ai" />Indicators of Artificial Intelligence Use</label>
       </div>
       <div class="check-actions">
-        <button id="go" class="primary">Analyze files</button>
+        <button id="go" class="primary">Analyze Files</button>
+        <button id="download" class="secondary">Download Word Lists</button>
       </div>
-      <div class="note">We automatically scan the selected categories using the maintained keyword lists.</div>
     </div>
 
     <div id="results" class="results"></div>
 
     <div class="footer">
-      <div>All processing happens locally in your browser. Safe for GitHub Pages (static hosting).</div>
-      <div>Libraries via CDN: Mammoth (.docx → text) and SheetJS/XLSX (.xlsx → text).</div>
+      <div>All processing happens locally in your browser.</div>
     </div>
   </div>
 
@@ -93,6 +94,7 @@
   <script>
     const fileBoxes = Array.from(document.querySelectorAll('.filebox'));
     const btn = document.getElementById('go');
+    const downloadBtn = document.getElementById('download');
     const resultsDiv = document.getElementById('results');
 
     const ADMIN_TERMS = `
@@ -793,8 +795,8 @@ yielding
       btn.disabled = true; btn.textContent = 'Analyzing…';
       const chosen = fileBoxes.map(i => i.files?.[0]).filter(Boolean);
       if (chosen.length === 0) {
-        resultsDiv.innerHTML = `<div class="panel"><div class="note">Add one or more files, then click <em>Analyze files</em>.</div></div>`;
-        btn.disabled = false; btn.textContent = 'Analyze files';
+        resultsDiv.innerHTML = `<div class="panel"><div class="note">Add one or more files, then click <em>Analyze Files</em>.</div></div>`;
+        btn.disabled = false; btn.textContent = 'Analyze Files';
         return;
       }
 
@@ -820,10 +822,34 @@ yielding
       }
 
       resultsDiv.innerHTML = renderTable(rows);
-      btn.disabled = false; btn.textContent = 'Analyze files';
+      btn.disabled = false; btn.textContent = 'Analyze Files';
     }
 
     btn.addEventListener('click', analyze);
+    downloadBtn.addEventListener('click', () => {
+      const csvRows = [];
+      const headers = ['Administration-Flagged Words & Phrases', 'Indicators of Artificial Intelligence Use'];
+      csvRows.push(headers);
+      const maxLen = Math.max(ADMIN_TERMS.length, AI_TERMS.length);
+      for (let i = 0; i < maxLen; i++) {
+        csvRows.push([
+          ADMIN_TERMS[i] || '',
+          AI_TERMS[i] || ''
+        ]);
+      }
+      const csvContent = csvRows
+        .map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(','))
+        .join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'keyword-lists.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
   </script>
 </body>
 </html>
