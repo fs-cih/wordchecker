@@ -49,8 +49,7 @@
   <div class="wrap">
     <div class="title">Keyword Scanner</div>
 
-    <div class="panel" aria-labelledby="inputs-label">
-      <div id="inputs-label" class="note" style="margin-bottom:8px;">10 upload boxes · two columns of five · one file each</div>
+    <div class="panel" aria-label="File uploads">
       <div class="cols2x5" role="group" aria-label="File inputs (10)">
         <div class="col">
           <div class="slot"><label>File 1</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 1 (docx/xlsx)" /></div>
@@ -67,7 +66,7 @@
           <div class="slot"><label>File 10</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 10 (docx/xlsx)" /></div>
         </div>
       </div>
-      <div class="note" style="margin-top:8px;">Note: Legacy <code>.doc</code> and <code>.xls</code> are not supported. Convert to .docx/.xlsx before uploading.</div>
+      <div class="note" style="margin-top:8px;">Note: Legacy <code>.doc</code> and <code>.xls</code> are not supported. Convert to .docx or .xlsx before uploading.</div>
     </div>
 
     <div class="panel" style="margin-top:16px;" aria-labelledby="checkfor-label">
@@ -79,6 +78,7 @@
       <div class="check-actions">
         <button id="go" class="primary">Analyze Files</button>
         <button id="download" class="secondary">Download Word Lists</button>
+        <button id="download-report" class="secondary" disabled>Download Report</button>
         <button id="reset" class="reset" disabled>Reset Form</button>
       </div>
     </div>
@@ -98,8 +98,10 @@
     const fileBoxes = Array.from(document.querySelectorAll('.filebox'));
     const btn = document.getElementById('go');
     const downloadBtn = document.getElementById('download');
+    const downloadReportBtn = document.getElementById('download-report');
     const resetBtn = document.getElementById('reset');
     const resultsDiv = document.getElementById('results');
+    let latestReportRows = null;
 
     const ADMIN_TERMS = `
 2S
@@ -725,6 +727,42 @@ yielding
       return new RegExp(esc, 'gi');
     }
 
+    const WORD_CHAR_RX = /[A-Za-z0-9]/;
+
+    function needsStartBoundary(term) {
+      return WORD_CHAR_RX.test(term[0] || '');
+    }
+
+    function needsEndBoundary(term) {
+      return WORD_CHAR_RX.test(term[term.length - 1] || '');
+    }
+
+    function isWordChar(char) {
+      return !!char && WORD_CHAR_RX.test(char);
+    }
+
+    function findMatches(text, term) {
+      const rx = buildRegex(term);
+      const matches = [];
+      let m;
+      let guard = 0;
+      const enforceStart = needsStartBoundary(term);
+      const enforceEnd = needsEndBoundary(term);
+      while ((m = rx.exec(text))) {
+        if (m[0].length === 0) { if (++guard > 1000) break; rx.lastIndex++; continue; }
+        const start = m.index;
+        const end = start + m[0].length;
+        if (enforceStart && isWordChar(text[start - 1])) continue;
+        if (enforceEnd && isWordChar(text[end])) continue;
+        matches.push({ start, end });
+      }
+      return matches;
+    }
+
+    function makePlainSnippet(text) {
+      return { html: escapeHTML(text), plain: text };
+    }
+
     async function readFileAsArrayBuffer(file) {
       return new Promise((resolve, reject) => {
         const r = new FileReader();
@@ -752,29 +790,21 @@ yielding
       return out.join('\n');
     }
 
-    function makeSnippets(text, term, context = 40) {
-      const rx = buildRegex(term);
-      const snips = [];
-      let m;
-      let guard = 0; // prevent infinite loops on zero-length matches
-      while ((m = rx.exec(text))) {
-        if (m[0].length === 0) { if (++guard > 1000) break; rx.lastIndex++; continue; }
-        const i = m.index;
-        const left = Math.max(0, i - context);
-        const right = Math.min(text.length, i + m[0].length + context);
-        const chunk = text.slice(left, right)
-          .replace(buildRegex(term), t => `[[HIT:${t}]]`);
-        snips.push('…' + chunk + '…');
-      }
-      return snips.map(s => escapeHTML(s).replace(/\[\[HIT:(.*?)\]\]/g, '<mark>$1</mark>'));
-    }
-
-    function countMatches(text, term) {
-      const rx = buildRegex(term);
-      let c = 0; let m;
-      let guard = 0;
-      while ((m = rx.exec(text))) { if (m[0].length === 0) { if (++guard > 1000) break; rx.lastIndex++; continue; } c++; }
-      return c;
+    function makeSnippets(text, term, context = 40, matches = null) {
+      const hits = matches || findMatches(text, term);
+      return hits.map(({ start, end }) => {
+        const left = Math.max(0, start - context);
+        const right = Math.min(text.length, end + context);
+        const chunk = text.slice(left, right);
+        const matchText = text.slice(start, end);
+        const relativeStart = start - left;
+        const relativeEnd = relativeStart + matchText.length;
+        const before = chunk.slice(0, relativeStart);
+        const after = chunk.slice(relativeEnd);
+        const html = `…${escapeHTML(before)}<mark>${escapeHTML(matchText)}</mark>${escapeHTML(after)}…`;
+        const plain = `…${chunk}…`;
+        return { html, plain };
+      });
     }
 
     function renderTable(rows) {
@@ -793,7 +823,7 @@ yielding
           <td>${escapeHTML(r.term)}</td>
           <td>${escapeHTML(r.source || '')}</td>
           <td><span class="pill ${r.count>0?'ok':'bad'}">${r.count}</span></td>
-          <td>${r.snips.map(s => `<code class="snip">${s}</code>`).join(' ')}</td>
+          <td>${r.snips.map(s => `<code class="snip">${s.html}</code>`).join(' ')}</td>
         </tr>`).join('');
       return `<div class="panel"><table>${head}<tbody>${body}</tbody></table></div>`;
     }
@@ -804,14 +834,19 @@ yielding
       resultsDiv.innerHTML = '';
       if (termEntries.length === 0) {
         resultsDiv.innerHTML = `<div class="panel"><div class="note">Select at least one category to scan for keywords.</div></div>`;
+        downloadReportBtn.disabled = true;
+        latestReportRows = null;
         return;
       }
 
       btn.disabled = true; btn.textContent = 'Analyzing…';
+      downloadReportBtn.disabled = true;
+      latestReportRows = null;
       const chosen = fileBoxes.map(i => i.files?.[0]).filter(Boolean);
       if (chosen.length === 0) {
         resultsDiv.innerHTML = `<div class="panel"><div class="note">Add one or more files, then click <em>Analyze Files</em>.</div></div>`;
         btn.disabled = false; btn.textContent = 'Analyze Files';
+        downloadReportBtn.disabled = true;
         return;
       }
 
@@ -823,18 +858,19 @@ yielding
           if (ext === 'docx') text = await extractTextFromDocx(file);
           else if (ext === 'xlsx') text = await extractTextFromXlsx(file);
           else {
-            rows.push({ file: file.name, term: '(unsupported)', count: 0, snips: ['Unsupported file type'], source: '' });
+            rows.push({ file: file.name, term: '(unsupported)', count: 0, snips: [makePlainSnippet('Unsupported file type')], source: '' });
             continue;
           }
           for (const { term, group } of termEntries) {
-            const count = countMatches(text, term);
+            const matches = findMatches(text, term);
+            const count = matches.length;
             if (count > 0) {
-              const snips = makeSnippets(text, term);
+              const snips = makeSnippets(text, term, 40, matches);
               rows.push({ file: file.name, term, count, snips, source: SOURCE_LABELS[group] || group });
             }
           }
         } catch (e) {
-          rows.push({ file: file.name, term: '(error)', count: 0, snips: [escapeHTML(String(e.message || e))], source: '' });
+          rows.push({ file: file.name, term: '(error)', count: 0, snips: [makePlainSnippet(String(e.message || e))], source: '' });
         }
       }
 
@@ -846,6 +882,8 @@ yielding
       });
 
       resultsDiv.innerHTML = renderTable(sortedRows);
+      latestReportRows = sortedRows;
+      downloadReportBtn.disabled = false;
       btn.disabled = false; btn.textContent = 'Analyze Files';
       resetBtn.disabled = false;
     }
@@ -860,6 +898,8 @@ yielding
       btn.disabled = false;
       btn.textContent = 'Analyze Files';
       resetBtn.disabled = true;
+      downloadReportBtn.disabled = true;
+      latestReportRows = null;
     });
     downloadBtn.addEventListener('click', () => {
       const csvRows = [];
@@ -880,6 +920,38 @@ yielding
       const link = document.createElement('a');
       link.href = url;
       link.download = 'keyword-lists.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+
+    downloadReportBtn.addEventListener('click', () => {
+      if (!latestReportRows) return;
+      const csvRows = [];
+      csvRows.push(['File', 'Term', 'Source', 'Count', 'Snippets']);
+      if (latestReportRows.length === 0) {
+        csvRows.push(['No matches found', '', '', '', '']);
+      } else {
+        latestReportRows.forEach(row => {
+          const snippetText = (row.snips || []).map(s => s.plain).join(' | ');
+          csvRows.push([
+            row.file,
+            row.term,
+            row.source || '',
+            row.count,
+            snippetText
+          ]);
+        });
+      }
+      const csvContent = csvRows
+        .map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(','))
+        .join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'keyword-report.csv';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
