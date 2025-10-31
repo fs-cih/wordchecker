@@ -685,10 +685,12 @@ yielding
       ai: AI_TERMS
     };
 
-    const SOURCE_LABELS = {
-      admin: 'Admin',
-      ai: 'AI'
-    };
+    const RESULT_GROUPS = [
+      { key: 'admin', heading: 'Administration-Flagged Words & Phrases', label: 'Admin' },
+      { key: 'ai', heading: 'Indicators of Artificial Intelligence Use', label: 'AI' }
+    ];
+
+    const RESULT_GROUP_LOOKUP = Object.fromEntries(RESULT_GROUPS.map(group => [group.key, group]));
 
     const termGroupInputs = Array.from(document.querySelectorAll('.term-group'));
 
@@ -807,25 +809,36 @@ yielding
       });
     }
 
-    function renderTable(rows) {
-      if (!rows.length) { return '<div class="panel"><div class="note">No matches found in selected files.</div></div>'; }
+    function renderGroupPanel(heading, rows) {
+      if (!rows.length) {
+        return `<div class="panel"><div class="panel-title">${heading}</div><div class="note">No matches found in selected files.</div></div>`;
+      }
       const head = `
         <thead><tr>
-          <th style="width:22%">File</th>
-          <th style="width:18%">Term</th>
-          <th style="width:12%">SOURCE</th>
-          <th style="width:10%">Count</th>
-          <th>Snippets</th>
+          <th style="width:24%">FILE</th>
+          <th style="width:28%">TERM</th>
+          <th style="width:12%">COUNT</th>
+          <th>SNIPPETS</th>
         </tr></thead>`;
       const body = rows.map(r => `
         <tr>
           <td>${escapeHTML(r.file)}</td>
           <td>${escapeHTML(r.term)}</td>
-          <td>${escapeHTML(r.source || '')}</td>
           <td><span class="pill ${r.count>0?'ok':'bad'}">${r.count}</span></td>
           <td>${r.snips.map(s => `<code class="snip">${s.html}</code>`).join(' ')}</td>
         </tr>`).join('');
-      return `<div class="panel"><table>${head}<tbody>${body}</tbody></table></div>`;
+      return `<div class="panel"><div class="panel-title">${heading}</div><table>${head}<tbody>${body}</tbody></table></div>`;
+    }
+
+    function renderResultsByGroup(rows, selectedGroups) {
+      const groupsInOrder = RESULT_GROUPS.filter(group => selectedGroups.includes(group.key));
+      if (groupsInOrder.length === 0) {
+        return '';
+      }
+      return groupsInOrder.map(group => {
+        const groupRows = rows.filter(r => r.group === group.key);
+        return renderGroupPanel(group.heading, groupRows);
+      }).join('');
     }
 
     async function analyze() {
@@ -858,7 +871,7 @@ yielding
           if (ext === 'docx') text = await extractTextFromDocx(file);
           else if (ext === 'xlsx') text = await extractTextFromXlsx(file);
           else {
-            rows.push({ file: file.name, term: '(unsupported)', count: 0, snips: [makePlainSnippet('Unsupported file type')], source: '' });
+            rows.push({ file: file.name, term: '(unsupported)', count: 0, snips: [makePlainSnippet('Unsupported file type')], group: selectedGroups[0] || null });
             continue;
           }
           for (const { term, group } of termEntries) {
@@ -866,11 +879,11 @@ yielding
             const count = matches.length;
             if (count > 0) {
               const snips = makeSnippets(text, term, 40, matches);
-              rows.push({ file: file.name, term, count, snips, source: SOURCE_LABELS[group] || group });
+              rows.push({ file: file.name, term, count, snips, group });
             }
           }
         } catch (e) {
-          rows.push({ file: file.name, term: '(error)', count: 0, snips: [makePlainSnippet(String(e.message || e))], source: '' });
+          rows.push({ file: file.name, term: '(error)', count: 0, snips: [makePlainSnippet(String(e.message || e))], group: selectedGroups[0] || null });
         }
       }
 
@@ -881,7 +894,7 @@ yielding
         return String(a.file).localeCompare(String(b.file));
       });
 
-      resultsDiv.innerHTML = renderTable(sortedRows);
+      resultsDiv.innerHTML = renderResultsByGroup(sortedRows, selectedGroups);
       latestReportRows = sortedRows;
       downloadReportBtn.disabled = false;
       btn.disabled = false; btn.textContent = 'Analyze Files';
@@ -935,10 +948,11 @@ yielding
       } else {
         latestReportRows.forEach(row => {
           const snippetText = (row.snips || []).map(s => s.plain).join(' | ');
+          const sourceLabel = row.group ? (RESULT_GROUP_LOOKUP[row.group]?.label || row.group) : '';
           csvRows.push([
             row.file,
             row.term,
-            row.source || '',
+            sourceLabel,
             row.count,
             snippetText
           ]);
