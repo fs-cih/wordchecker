@@ -810,35 +810,79 @@ yielding
       });
     }
 
-    function renderGroupPanel(heading, rows) {
-      if (!rows.length) {
+    function groupRowsByTerm(rows) {
+      const groupMap = new Map();
+      rows.forEach(row => {
+        const groupKey = row.group;
+        if (!groupMap.has(groupKey)) {
+          groupMap.set(groupKey, new Map());
+        }
+        const termMap = groupMap.get(groupKey);
+        const termKey = row.term;
+        if (!termMap.has(termKey)) {
+          termMap.set(termKey, { group: groupKey, term: termKey, total: 0, entries: [] });
+        }
+        const bucket = termMap.get(termKey);
+        bucket.total += row.count;
+        bucket.entries.push({ file: row.file, count: row.count, snips: row.snips });
+      });
+
+      const grouped = new Map();
+      groupMap.forEach((termMap, groupKey) => {
+        const buckets = Array.from(termMap.values()).map(bucket => {
+          bucket.entries.sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            return String(a.file).localeCompare(String(b.file));
+          });
+          return bucket;
+        });
+        buckets.sort((a, b) => {
+          if (b.total !== a.total) return b.total - a.total;
+          return String(a.term).localeCompare(String(b.term));
+        });
+        grouped.set(groupKey, buckets);
+      });
+
+      return grouped;
+    }
+
+    function renderGroupPanel(heading, termBuckets) {
+      if (!termBuckets.length) {
         return `<div class="panel"><div class="panel-title">${heading}</div><div class="note">No matches found in selected files.</div></div>`;
       }
       const head = `
         <thead><tr>
+          <th style="width:24%">TERM</th>
+          <th style="width:12%">TOTAL</th>
           <th style="width:24%">FILE</th>
-          <th style="width:28%">TERM</th>
           <th style="width:12%">COUNT</th>
           <th>SNIPPETS</th>
         </tr></thead>`;
-      const body = rows.map(r => `
-        <tr>
-          <td>${escapeHTML(r.file)}</td>
-          <td>${escapeHTML(r.term)}</td>
-          <td><span class="pill ${r.count>0?'ok':'bad'}">${r.count}</span></td>
-          <td>${r.snips.map(s => `<code class="snip">${s.html}</code>`).join(' ')}</td>
-        </tr>`).join('');
+      const body = termBuckets.map(bucket => {
+        const rows = bucket.entries.map((entry, idx) => {
+          const fileCell = `<td>${escapeHTML(entry.file)}</td>`;
+          const countCell = `<td><span class="pill ${entry.count>0?'ok':'bad'}">${entry.count}</span></td>`;
+          const snippetsCell = `<td>${(entry.snips || []).map(s => `<code class="snip">${s.html}</code>`).join(' ')}</td>`;
+          if (idx === 0) {
+            const totalClass = bucket.total>0?'ok':'bad';
+            const termCell = `<td rowspan="${bucket.entries.length}" colspan="2">${escapeHTML(bucket.term)} <span class="pill ${totalClass}">${bucket.total}</span></td>`;
+            return `<tr>${termCell}${fileCell}${countCell}${snippetsCell}</tr>`;
+          }
+          return `<tr>${fileCell}${countCell}${snippetsCell}</tr>`;
+        }).join('');
+        return rows;
+      }).join('');
       return `<div class="panel"><div class="panel-title">${heading}</div><table>${head}<tbody>${body}</tbody></table></div>`;
     }
 
-    function renderResultsByGroup(rows, selectedGroups) {
+    function renderResultsByGroup(groupedBuckets, selectedGroups) {
       const groupsInOrder = RESULT_GROUPS.filter(group => selectedGroups.includes(group.key));
       if (groupsInOrder.length === 0) {
         return '';
       }
       return groupsInOrder.map(group => {
-        const groupRows = rows.filter(r => r.group === group.key);
-        return renderGroupPanel(group.heading, groupRows);
+        const termBuckets = groupedBuckets.get(group.key) || [];
+        return renderGroupPanel(group.heading, termBuckets);
       }).join('');
     }
 
@@ -888,15 +932,26 @@ yielding
         }
       }
 
-      const sortedRows = rows.slice().sort((a, b) => {
-        if (b.count !== a.count) return b.count - a.count;
-        const termCmp = String(a.term).localeCompare(String(b.term));
-        if (termCmp !== 0) return termCmp;
-        return String(a.file).localeCompare(String(b.file));
+      const groupedBuckets = groupRowsByTerm(rows);
+      resultsDiv.innerHTML = renderResultsByGroup(groupedBuckets, selectedGroups);
+
+      const flattened = [];
+      RESULT_GROUPS.filter(group => selectedGroups.includes(group.key)).forEach(group => {
+        const buckets = groupedBuckets.get(group.key) || [];
+        buckets.forEach(bucket => {
+          bucket.entries.forEach(entry => {
+            flattened.push({
+              file: entry.file,
+              term: bucket.term,
+              group: bucket.group,
+              count: entry.count,
+              snips: entry.snips
+            });
+          });
+        });
       });
 
-      resultsDiv.innerHTML = renderResultsByGroup(sortedRows, selectedGroups);
-      latestReportRows = sortedRows;
+      latestReportRows = flattened;
       downloadReportBtn.disabled = false;
       btn.disabled = false; btn.textContent = 'Analyze Files';
       resetBtn.disabled = false;
