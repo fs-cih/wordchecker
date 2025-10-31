@@ -852,8 +852,7 @@ yielding
       }
       const head = `
         <thead><tr>
-          <th style="width:24%">TERM</th>
-          <th style="width:12%">TOTAL</th>
+          <th style="width:32%">TERM</th>
           <th style="width:24%">FILE</th>
           <th style="width:12%">COUNT</th>
           <th>SNIPPETS</th>
@@ -865,7 +864,7 @@ yielding
           const snippetsCell = `<td>${(entry.snips || []).map(s => `<code class="snip">${s.html}</code>`).join(' ')}</td>`;
           if (idx === 0) {
             const totalClass = bucket.total>0?'ok':'bad';
-            const termCell = `<td rowspan="${bucket.entries.length}" colspan="2">${escapeHTML(bucket.term)} <span class="pill ${totalClass}">${bucket.total}</span></td>`;
+            const termCell = `<td rowspan="${bucket.entries.length}">${escapeHTML(bucket.term)} <span class="pill ${totalClass}">${bucket.total}</span></td>`;
             return `<tr>${termCell}${fileCell}${countCell}${snippetsCell}</tr>`;
           }
           return `<tr>${fileCell}${countCell}${snippetsCell}</tr>`;
