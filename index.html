@@ -23,6 +23,8 @@
     button.primary:disabled { opacity: .6; cursor: not-allowed; }
     button.secondary { background: var(--accent); color: #f8f9ff; border: none; border-radius: 12px; padding: 12px 18px; font-weight: 600; cursor: pointer; }
     button.secondary:disabled { opacity: .6; cursor: not-allowed; }
+    button.reset { background: #ffffff; color: var(--muted); border: 1px solid rgba(17,24,39,.12); border-radius: 12px; padding: 12px 18px; font-weight: 600; cursor: not-allowed; transition: background-color .2s, color .2s; }
+    button.reset:not(:disabled) { background: #7b1e1e; color: #f8f9ff; border: none; cursor: pointer; }
     .results { margin-top: 20px; }
     table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
     thead th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: rgba(59,110,231,.08); padding: 10px 10px; border-bottom: 1px solid rgba(17,24,39,.08); }
@@ -77,6 +79,7 @@
       <div class="check-actions">
         <button id="go" class="primary">Analyze Files</button>
         <button id="download" class="secondary">Download Word Lists</button>
+        <button id="reset" class="reset" disabled>Reset Form</button>
       </div>
     </div>
 
@@ -95,6 +98,7 @@
     const fileBoxes = Array.from(document.querySelectorAll('.filebox'));
     const btn = document.getElementById('go');
     const downloadBtn = document.getElementById('download');
+    const resetBtn = document.getElementById('reset');
     const resultsDiv = document.getElementById('results');
 
     const ADMIN_TERMS = `
@@ -679,6 +683,11 @@ yielding
       ai: AI_TERMS
     };
 
+    const SOURCE_LABELS = {
+      admin: 'Admin',
+      ai: 'AI'
+    };
+
     const termGroupInputs = Array.from(document.querySelectorAll('.term-group'));
 
     function expandTerm(term) {
@@ -692,14 +701,18 @@ yielding
     }
 
     function gatherTerms(groups) {
-      const bucket = [];
+      const bucket = new Map();
       groups.forEach(group => {
         const list = TERM_GROUPS[group] || [];
         list.forEach(term => {
-          expandTerm(term).forEach(t => bucket.push(t));
+          expandTerm(term).forEach(t => {
+            if (!bucket.has(t)) {
+              bucket.set(t, group);
+            }
+          });
         });
       });
-      return Array.from(new Set(bucket));
+      return Array.from(bucket.entries()).map(([term, group]) => ({ term, group }));
     }
 
     function escapeHTML(s) {
@@ -739,12 +752,12 @@ yielding
       return out.join('\n');
     }
 
-    function makeSnippets(text, term, maxSnips = 3, context = 40) {
+    function makeSnippets(text, term, context = 40) {
       const rx = buildRegex(term);
       const snips = [];
       let m;
       let guard = 0; // prevent infinite loops on zero-length matches
-      while ((m = rx.exec(text)) && snips.length < maxSnips) {
+      while ((m = rx.exec(text))) {
         if (m[0].length === 0) { if (++guard > 1000) break; rx.lastIndex++; continue; }
         const i = m.index;
         const left = Math.max(0, i - context);
@@ -770,6 +783,7 @@ yielding
         <thead><tr>
           <th style="width:22%">File</th>
           <th style="width:18%">Term</th>
+          <th style="width:12%">SOURCE</th>
           <th style="width:10%">Count</th>
           <th>Snippets</th>
         </tr></thead>`;
@@ -777,6 +791,7 @@ yielding
         <tr>
           <td>${escapeHTML(r.file)}</td>
           <td>${escapeHTML(r.term)}</td>
+          <td>${escapeHTML(r.source || '')}</td>
           <td><span class="pill ${r.count>0?'ok':'bad'}">${r.count}</span></td>
           <td>${r.snips.map(s => `<code class="snip">${s}</code>`).join(' ')}</td>
         </tr>`).join('');
@@ -785,9 +800,9 @@ yielding
 
     async function analyze() {
       const selectedGroups = termGroupInputs.filter(cb => cb.checked).map(cb => cb.value);
-      const terms = gatherTerms(selectedGroups);
+      const termEntries = gatherTerms(selectedGroups);
       resultsDiv.innerHTML = '';
-      if (terms.length === 0) {
+      if (termEntries.length === 0) {
         resultsDiv.innerHTML = `<div class="panel"><div class="note">Select at least one category to scan for keywords.</div></div>`;
         return;
       }
@@ -808,24 +823,44 @@ yielding
           if (ext === 'docx') text = await extractTextFromDocx(file);
           else if (ext === 'xlsx') text = await extractTextFromXlsx(file);
           else {
-            rows.push({ file: file.name, term: '(unsupported)', count: 0, snips: ['Unsupported file type'] });
+            rows.push({ file: file.name, term: '(unsupported)', count: 0, snips: ['Unsupported file type'], source: '' });
             continue;
           }
-          for (const term of terms) {
+          for (const { term, group } of termEntries) {
             const count = countMatches(text, term);
-            const snips = count > 0 ? makeSnippets(text, term) : [];
-            rows.push({ file: file.name, term, count, snips });
+            if (count > 0) {
+              const snips = makeSnippets(text, term);
+              rows.push({ file: file.name, term, count, snips, source: SOURCE_LABELS[group] || group });
+            }
           }
         } catch (e) {
-          rows.push({ file: file.name, term: '(error)', count: 0, snips: [escapeHTML(String(e.message || e))] });
+          rows.push({ file: file.name, term: '(error)', count: 0, snips: [escapeHTML(String(e.message || e))], source: '' });
         }
       }
 
-      resultsDiv.innerHTML = renderTable(rows);
+      const sortedRows = rows.slice().sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        const termCmp = String(a.term).localeCompare(String(b.term));
+        if (termCmp !== 0) return termCmp;
+        return String(a.file).localeCompare(String(b.file));
+      });
+
+      resultsDiv.innerHTML = renderTable(sortedRows);
       btn.disabled = false; btn.textContent = 'Analyze Files';
+      resetBtn.disabled = false;
     }
 
     btn.addEventListener('click', analyze);
+    resetBtn.addEventListener('click', () => {
+      fileBoxes.forEach(input => { input.value = ''; });
+      termGroupInputs.forEach(input => {
+        input.checked = input.value === 'admin';
+      });
+      resultsDiv.innerHTML = '';
+      btn.disabled = false;
+      btn.textContent = 'Analyze Files';
+      resetBtn.disabled = true;
+    });
     downloadBtn.addEventListener('click', () => {
       const csvRows = [];
       const headers = ['Administration-Flagged Words & Phrases', 'Indicators of Artificial Intelligence Use'];
