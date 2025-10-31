@@ -29,8 +29,14 @@
     .results { margin-top: 20px; }
     .results .panel + .panel { margin-top: 16px; }
     table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
+    table.results-table { table-layout: fixed; }
+    table.results-table th, table.results-table td { word-break: break-word; }
     thead th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: rgba(59,110,231,.08); padding: 10px 10px; border-bottom: 1px solid rgba(17,24,39,.08); }
     tbody td { padding: 12px 10px; border-bottom: 1px solid rgba(17,24,39,.08); vertical-align: top; }
+    td.term-cell { width: 18%; }
+    td.file-cell { width: 20%; }
+    td.count-cell { width: 12%; }
+    td.snip-cell { width: 50%; }
     .pill { display:inline-flex; align-items:center; gap:8px; padding: 4px 8px; border-radius: 999px; background: rgba(59,110,231,.08); font-size: 12px; color: var(--ink); }
     .ok { background: rgba(47,156,98,.12); color: #1a6a40; }
     .bad { background: rgba(211,66,66,.12); color: #8b1d1d; }
@@ -853,26 +859,26 @@ yielding
       }
       const head = `
         <thead><tr>
-          <th style="width:26%">TERM</th>
+          <th style="width:18%">TERM</th>
           <th style="width:20%">FILE</th>
           <th style="width:12%">COUNT</th>
-          <th style="width:42%">SNIPPETS</th>
+          <th style="width:50%">SNIPPETS</th>
         </tr></thead>`;
       const body = termBuckets.map(bucket => {
         const rows = bucket.entries.map((entry, idx) => {
-          const fileCell = `<td>${escapeHTML(entry.file)}</td>`;
-          const countCell = `<td><span class="pill ${entry.count>0?'ok':'bad'}">${entry.count}</span></td>`;
-          const snippetsCell = `<td>${(entry.snips || []).map(s => `<code class="snip">${s.html}</code>`).join(' ')}</td>`;
+          const fileCell = `<td class="file-cell">${escapeHTML(entry.file)}</td>`;
+          const countCell = `<td class="count-cell"><span class="pill ${entry.count>0?'ok':'bad'}">${entry.count}</span></td>`;
+          const snippetsCell = `<td class="snip-cell">${(entry.snips || []).map(s => `<code class="snip">${s.html}</code>`).join(' ')}</td>`;
           if (idx === 0) {
             const totalClass = bucket.total>0?'ok':'bad';
-            const termCell = `<td rowspan="${bucket.entries.length}">${escapeHTML(bucket.term)} <span class="pill ${totalClass}">${bucket.total}</span></td>`;
+            const termCell = `<td class="term-cell" rowspan="${bucket.entries.length}">${escapeHTML(bucket.term)} <span class="pill ${totalClass}">${bucket.total}</span></td>`;
             return `<tr>${termCell}${fileCell}${countCell}${snippetsCell}</tr>`;
           }
           return `<tr>${fileCell}${countCell}${snippetsCell}</tr>`;
         }).join('');
         return rows;
       }).join('');
-      return `<div class="panel"><div class="panel-title">${heading}</div><table>${head}<tbody>${body}</tbody></table></div>`;
+      return `<div class="panel"><div class="panel-title">${heading}</div><table class="results-table">${head}<tbody>${body}</tbody></table></div>`;
     }
 
     function renderResultsByGroup(groupedBuckets, selectedGroups) {
@@ -945,7 +951,8 @@ yielding
               term: bucket.term,
               group: bucket.group,
               count: entry.count,
-              snips: entry.snips
+              snips: entry.snips,
+              total: bucket.total
             });
           });
         });
@@ -998,17 +1005,19 @@ yielding
     downloadReportBtn.addEventListener('click', () => {
       if (!latestReportRows) return;
       const csvRows = [];
-      csvRows.push(['File', 'Term', 'Source', 'Count', 'Snippets']);
+      csvRows.push(['Category', 'Term', 'Term Total', 'File', 'Count', 'Snippets']);
       if (latestReportRows.length === 0) {
-        csvRows.push(['No matches found', '', '', '', '']);
+        csvRows.push(['No matches found', '', '', '', '', '']);
       } else {
         latestReportRows.forEach(row => {
           const snippetText = (row.snips || []).map(s => s.plain).join(' | ');
-          const sourceLabel = row.group ? (RESULT_GROUP_LOOKUP[row.group]?.label || row.group) : '';
+          const groupInfo = row.group ? RESULT_GROUP_LOOKUP[row.group] : null;
+          const sourceHeading = groupInfo ? groupInfo.heading : (row.group || '');
           csvRows.push([
-            row.file,
+            sourceHeading,
             row.term,
-            sourceLabel,
+            row.total ?? '',
+            row.file,
             row.count,
             snippetText
           ]);
