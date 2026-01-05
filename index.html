@@ -41,6 +41,12 @@
     .ok { background: rgba(47,156,98,.12); color: #1a6a40; }
     .bad { background: rgba(211,66,66,.12); color: #8b1d1d; }
     code.snip { background: rgba(15,23,42,.08); padding: 2px 6px; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; color: var(--ink); }
+    .term-with-flag { display: flex; flex-direction: column; gap: 2px; }
+    .flag-icon { display: inline-block; position: relative; cursor: help; color: #dc143c; font-size: 16px; line-height: 1; margin-top: 2px; }
+    .flag-icon::before { content: '⚑'; }
+    .flag-tooltip { visibility: hidden; position: absolute; bottom: 120%; left: 0; z-index: 1000; background: rgba(26,33,52,.95); color: #ffffff; padding: 8px 10px; border-radius: 6px; font-size: 10px; white-space: normal; max-width: 250px; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+    .flag-tooltip::after { content: ''; position: absolute; top: 100%; left: 12px; border: 5px solid transparent; border-top-color: rgba(26,33,52,.95); }
+    .flag-icon:hover .flag-tooltip { visibility: visible; }
     .footer { margin-top: 28px; color: var(--muted); font-size: 12px; }
     .legend { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .cols2x5 { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
@@ -708,6 +714,21 @@ yielding
 
     const RESULT_GROUP_LOOKUP = Object.fromEntries(RESULT_GROUPS.map(group => [group.key, group]));
 
+    // Flagged terms that should display a warning icon
+    const FLAGGED_TERMS = new Set([
+      'Diversity',
+      'Equity',
+      'Inclusion',
+      'Gender',
+      'LGBTQ',
+      'LGBTQ+',
+      'Transgender',
+      'Social justice'
+    ].map(term => term.toLowerCase()));
+
+    // Tooltip message for flagged terms
+    const FLAG_TOOLTIP_MESSAGE = 'Warning! This word has been specifically flagged by grant project officer(s) in at least one prior submission with a CIH researcher.';
+
     const termGroupInputs = Array.from(document.querySelectorAll('.term-group'));
 
     function expandTerm(term) {
@@ -873,13 +894,21 @@ yielding
           <th style="width:50%">SNIPPETS</th>
         </tr></thead>`;
       const body = termBuckets.map(bucket => {
+        const isFlagged = FLAGGED_TERMS.has(bucket.term.toLowerCase());
         const rows = bucket.entries.map((entry, idx) => {
           const fileCell = `<td class="file-cell">${escapeHTML(entry.file)}</td>`;
           const countCell = `<td class="count-cell"><span class="pill ${entry.count>0?'ok':'bad'}">${entry.count}</span></td>`;
           const snippetsCell = `<td class="snip-cell">${(entry.snips || []).map(s => `<code class="snip">${s.html}</code>`).join(' ')}</td>`;
           if (idx === 0) {
             const totalClass = bucket.total>0?'ok':'bad';
-            const termCell = `<td class="term-cell" rowspan="${bucket.entries.length}">${escapeHTML(bucket.term)} <span class="pill ${totalClass}">${bucket.total}</span></td>`;
+            const termBasic = `${escapeHTML(bucket.term)} <span class="pill ${totalClass}">${bucket.total}</span>`;
+            let termContent = termBasic;
+            if (isFlagged) {
+              const tooltipParts = FLAG_TOOLTIP_MESSAGE.split('!');
+              const tooltipHTML = `<strong>${escapeHTML(tooltipParts[0])}!</strong>${escapeHTML(tooltipParts.slice(1).join('!'))}`;
+              termContent = `<div class="term-with-flag"><div>${termBasic}</div><span class="flag-icon"><span class="flag-tooltip">${tooltipHTML}</span></span></div>`;
+            }
+            const termCell = `<td class="term-cell" rowspan="${bucket.entries.length}">${termContent}</td>`;
             return `<tr>${termCell}${fileCell}${countCell}${snippetsCell}</tr>`;
           }
           return `<tr>${fileCell}${countCell}${snippetsCell}</tr>`;
