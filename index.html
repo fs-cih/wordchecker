@@ -726,6 +726,9 @@ yielding
       'Social justice'
     ].map(term => term.toLowerCase()));
 
+    // Tooltip message for flagged terms
+    const FLAG_TOOLTIP_MESSAGE = 'Warning! This word has been specifically flagged by grant project officer(s) in at least one prior submission with a CIH researcher.';
+
     const termGroupInputs = Array.from(document.querySelectorAll('.term-group'));
 
     function expandTerm(term) {
@@ -898,9 +901,12 @@ yielding
           const snippetsCell = `<td class="snip-cell">${(entry.snips || []).map(s => `<code class="snip">${s.html}</code>`).join(' ')}</td>`;
           if (idx === 0) {
             const totalClass = bucket.total>0?'ok':'bad';
-            let termContent = `${escapeHTML(bucket.term)} <span class="pill ${totalClass}">${bucket.total}</span>`;
+            const termBasic = `${escapeHTML(bucket.term)} <span class="pill ${totalClass}">${bucket.total}</span>`;
+            let termContent = termBasic;
             if (isFlagged) {
-              termContent = `<div class="term-with-flag"><div>${escapeHTML(bucket.term)} <span class="pill ${totalClass}">${bucket.total}</span></div><span class="flag-icon"><span class="flag-tooltip"><strong>Warning!</strong> This word has been specifically flagged by grant project officer(s) in at least one prior submission with a CIH researcher.</span></span></div>`;
+              const tooltipParts = FLAG_TOOLTIP_MESSAGE.split('!');
+              const tooltipHTML = `<strong>${escapeHTML(tooltipParts[0])}!</strong>${escapeHTML(tooltipParts.slice(1).join('!'))}`;
+              termContent = `<div class="term-with-flag"><div>${termBasic}</div><span class="flag-icon"><span class="flag-tooltip">${tooltipHTML}</span></span></div>`;
             }
             const termCell = `<td class="term-cell" rowspan="${bucket.entries.length}">${termContent}</td>`;
             return `<tr>${termCell}${fileCell}${countCell}${snippetsCell}</tr>`;
