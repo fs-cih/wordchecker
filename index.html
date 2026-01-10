@@ -1,6 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Keyword Scanner — Word/Excel (10 uploads)</title>
+  <style>
+    :root { --bg:#f5f6fb; --card:#ffffff; --ink:#1a2134; --muted:#5d6783; --accent:#3b6ee7; --bad:#d34242; --ok:#2f9c62; }
+    html, body { height: 100%; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; color: var(--ink); background: var(--bg); }
+    .wrap { max-width: 1100px; margin: 32px auto; padding: 0 16px 64px; }
+    .title { font-size: clamp(20px, 3vw, 32px); font-weight: 400; letter-spacing: .3px; margin-bottom: 16px; }
+    .panel { background: var(--card); border: 1px solid rgba(17,24,39,.08); border-radius: 16px; padding: 16px; box-shadow: 0 12px 24px rgba(15,23,42,.08); }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .slot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding: 10px 12px; border: 1px dashed rgba(17,24,39,.12); border-radius: 12px; background: rgba(59,110,231,.05); }
+    .slot label { font-size: 13px; color: var(--muted); }
+    .slot input[type=file] { flex: 1; border: 1px solid rgba(17,24,39,.1); padding: 6px; border-radius: 8px; background: rgba(255,255,255,.85); color: var(--ink); }
+    .slot input[type=file]::file-selector-button { margin-right: 10px; border: none; background: var(--accent); color: #f8f9ff; padding: 6px 10px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .note { font-size: 12px; color: var(--muted); }
+    .controls { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin: 16px 0; }
+    textarea { width: 100%; min-height: 80px; border-radius: 12px; border: 1px solid rgba(17,24,39,.12); padding: 10px 12px; background: rgba(59,110,231,.04); color: var(--ink); }
+    button.primary { background: var(--ok); color: #f8f9ff; border: none; border-radius: 12px; padding: 12px 18px; font-weight: 600; cursor: pointer; }
+    button.primary:disabled { opacity: .6; cursor: not-allowed; }
+    button.secondary { background: var(--accent); color: #f8f9ff; border: none; border-radius: 12px; padding: 12px 18px; font-weight: 600; cursor: pointer; }
+    button.secondary:disabled { opacity: .6; cursor: not-allowed; }
+    #download-report:disabled { background: #ffffff; color: var(--muted); border: 1px solid rgba(17,24,39,.12); opacity: 1; cursor: not-allowed; }
+    button.reset { background: #ffffff; color: var(--muted); border: 1px solid rgba(17,24,39,.12); border-radius: 12px; padding: 12px 18px; font-weight: 600; cursor: not-allowed; transition: background-color .2s, color .2s; }
+    button.reset:not(:disabled) { background: #7b1e1e; color: #f8f9ff; border: none; cursor: pointer; }
+    .results { margin-top: 20px; }
+    .results .panel + .panel { margin-top: 16px; }
+    table { width: 100%; border-collapse: collapse; border-radius: 12px; overflow: hidden; }
+    table.results-table { table-layout: fixed; }
+    table.results-table th, table.results-table td { word-break: break-word; }
+    thead th { text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: rgba(59,110,231,.08); padding: 10px 10px; border-bottom: 1px solid rgba(17,24,39,.08); }
+    tbody td { padding: 12px 10px; border-bottom: 1px solid rgba(17,24,39,.08); vertical-align: top; }
+    td.term-cell { width: 18%; }
+    td.file-cell { width: 20%; }
+    td.count-cell { width: 12%; }
+    td.snip-cell { width: 50%; }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding: 4px 8px; border-radius: 999px; background: rgba(59,110,231,.08); font-size: 12px; color: var(--ink); }
+    .ok { background: rgba(47,156,98,.12); color: #1a6a40; }
+    .bad { background: rgba(211,66,66,.12); color: #8b1d1d; }
+    code.snip { background: rgba(15,23,42,.08); padding: 2px 6px; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; color: var(--ink); }
+    .term-with-flag { display: flex; flex-direction: column; gap: 2px; }
+    .flag-icon { display: inline-block; position: relative; cursor: help; color: #dc143c; font-size: 16px; line-height: 1; margin-top: 2px; }
+    .flag-icon::before { content: '⚑'; }
+    .flag-tooltip { visibility: hidden; position: absolute; bottom: 120%; left: 0; z-index: 1000; background: rgba(26,33,52,.95); color: #ffffff; padding: 8px 10px; border-radius: 6px; font-size: 10px; white-space: normal; max-width: 250px; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+    .flag-tooltip::after { content: ''; position: absolute; top: 100%; left: 12px; border: 5px solid transparent; border-top-color: rgba(26,33,52,.95); }
+    .flag-icon:hover .flag-tooltip { visibility: visible; }
+    .footer { margin-top: 28px; color: var(--muted); font-size: 12px; }
+    .legend { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .cols2x5 { display:grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .col { display:grid; grid-template-rows: repeat(5, auto); gap: 12px; }
+    .panel-title { font-weight: 700; margin-bottom: 12px; font-size: 15px; }
+    .checklist { display:flex; flex-direction:column; gap: 10px; }
+    .checklist label { display:flex; align-items:center; gap: 10px; font-size: 14px; color: var(--ink); }
+    .checklist input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+    .check-actions { margin-top: 16px; display:flex; gap: 10px; }
+    @media (max-width: 800px) { .grid, .cols2x5 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
     <div class="title">Self-Censorship Assistant</div>
-
-    <p>This website uses a variety of sources to flag words and phrases that (a) have been identified by the current administration for avoidance or (b) are overrepresented in text produced by artificial intelligence. Sources include the <a href="https://www.nytimes.com/interactive/2025/03/07/us/trump-federal-agencies-websites-words-dei.html" target="_blank">New York Times (like this article on administrative words</a> and <a href="https://www.nytimes.com/2025/07/02/health/ai-chatgpt-research-papers.html" target="_blank">this one about AI language quirks</a>). Additionally, we maintain a real-time list based on other publications and conversations with grant project officers.</p>
 
     <div class="panel" aria-label="File uploads">
       <div class="cols2x5" role="group" aria-label="File inputs (10)">
+        <div class="col">
+          <div class="slot"><label>File 1</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 1 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 2</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 2 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 3</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 3 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 4</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 4 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 5</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 5 (docx/xlsx)" /></div>
+        </div>
+        <div class="col">
+          <div class="slot"><label>File 6</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 6 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 7</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 7 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 8</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 8 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 9</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 9 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 10</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 10 (docx/xlsx)" /></div>
+        </div>
+      </div>
+      <div class="note" style="margin-top:8px;">Note: Legacy <code>.doc</code> and <code>.xls</code> are not supported. Convert to .docx or .xlsx before uploading.</div>
+    </div>
+
+    <div class="panel" style="margin-top:16px;" aria-labelledby="checkfor-label">
+      <div id="checkfor-label" class="panel-title">Check For</div>
+      <div class="checklist" role="group" aria-labelledby="checkfor-label">
+        <label><input class="term-group" type="checkbox" value="admin" checked />Administration-Flagged Words &amp; Phrases</label>
+        <label><input class="term-group" type="checkbox" value="ai" />Indicators of Artificial Intelligence Use</label>
+      </div>
+      <div class="check-actions">
+        <button id="go" class="primary">Analyze Files</button>
+        <button id="download" class="secondary">Download Word Lists</button>
+        <button id="download-report" class="secondary" disabled>Download Report</button>
+        <button id="reset" class="reset" disabled>Reset Form</button>
+      </div>
+    </div>
+
+    <div id="results" class="results"></div>
+
+    <div class="footer">
+      <div>All processing happens locally in your browser. No documents or data are uploaded or saved online.</div>
+    </div>
+  </div>
+
+  <!-- External libs -->
+  <script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    const fileBoxes = Array.from(document.querySelectorAll('.filebox'));
+    const btn = document.getElementById('go');
+    const downloadBtn = document.getElementById('download');
+    const downloadReportBtn = document.getElementById('download-report');
+    const resetBtn = document.getElementById('reset');
+    const resultsDiv = document.getElementById('results');
+    let latestReportRows = null;
+
+    const ADMIN_TERMS = `
+2S
+2S+
+Accessibility
+Accessible
+Activism
+Activist
+Activists
+Advocacy
+Advocate
+Advocates
+Affirm
+Affirms
+Affirming
+Affirming care
+Allied
+Allies
+All-inclusive
+Ally
+Allyship
+American Indian
+American Indians
+Anti racism
+Anti-racism
+Antiracist
+Anti-racist
+Anti-racists
+Assigned at birth
+Assigned female at birth
+Assigned male at birth
+At risk
+At-risk
+Barrier
+Barriers
+Belong
+Belongs
+Belonging
+Bias
+Biased
+Biased toward
+Biasted towards
+Biases
+Biases toward
+Biases towards
+Biological female
+Biological male
+Biologically female
+Biologically male
+BIPOC
+Birthing people
+Birthing person
+Black
+Breastfeed + people
+Breastfeed + person
+Breastfeeding people
+Breastfeeding person
+Chestfeed
+Chestfeed + people
+Chestfeed + person
+Chestfeeds
+Chestfeeding
+Chestfeeding people
+Clean energy
+Climate crisis
+Climate emergency
+Climate science
+Commercial sex worker
+Community diversity
+Community equity
+Confirmation bias
+Cultural
+Cultural competence
+Cultural congruence
+Cultural differences
+Cultural heritage
+Cultural responsiveness
+Cultural safety
+Cultural sensitivity
+Culturally
+Culturally appropriate
+Culturally congruent
+Culturally-congruent
+Culturally informed
+Culturally-informed
+Culturally responsive
+Culture
+Culture-based
+Cultures
+Decolonize
+Decolonized
+Decolonizes
+Decolonizing
+DEI
+DEIA
+DEIAB
+DEIJ
+Disabilities
+Disability
+Disabled
+Discriminate
+Discriminated
+Discriminates
+Discrimination
+Discriminatory
+Disparity
+Diverse
+Diverse backgrounds
+Diverse communities
+Diverse community
+Diverse group
+Diverse groups
+Diversified
+Diversify
+Diversifying
+Diversity
+Enhance the diversity
+Enhances the diversity
+Enhancing diversity
+Enhancing the diversity
+Environmental quality
+Equal opportunity
+Equality
+Equitable
+Equitableness
+Equity
+Ethnic
+Ethnicity
+Exclude
+Excluded
+Excludes
+Exclusion
+Exclusive
+Expression
+Expressive
+Expressiveness
+Female
+Females
+Feminism
+Feminist
+Feminists
+Foster
+Fosters
+Fostering inclusivity
+GBV
+Gender
+Gender affirming
+Gender-affirming
+Gender based
+Gender-based
+Gender based violence (GBV)
+Gender based violence
+Bender-based violence
+Gender diversity
+Gender identity
+Gender identities
+Gender ideology
+Gender ideologies
+Gender affirming
+Gender-affirming
+Genders
+Global warming
+Gulf of Mexico
+Harm reduction
+Harm reducing
+Hate
+Hate speech
+Hates
+Health disparity
+Health disparities
+Health equity
+Health equities
+Health inequality
+Health inequalities
+High-risk
+Hispanic minority
+Historically
+Identifies
+Identities
+Identity
+Immigrant
+Immigrants
+Implicit bias
+Implicit biases
+Inclusion
+Inclusive
+Inclusive leadership
+Inclusiveness
+Inclusivity
+Increase diversity
+Increasing diversity
+Increase the diversity
+Indian
+Indian Reservation
+Indian Reservations
+Indians
+Indigenous
+Indigenous community
+Indigenization
+Indigenizing
+Indingenaity
+Inequalities
+Inequality
+Inequitable
+Inequities
+Inequity
+Injustice
+Institutional
+Institutionality
+Intersectional
+Intersectionality
+Key group
+Key groups
+Key person
+Key people
+Key population
+Key populations
+Latinx
+LGBT
+LGBTQ
+LGBTQ2S
+LGBTQ2S+
+LGBTQ+
+LGBTQIA
+LGBTQIA2S
+LGBTQIA2S+
+Marginalize
+Marginalized
+Marginalizes
+Marginalizing
+Men who have sex with men
+Mental health
+Minorities
+Minority
+Most risk
+MSM
+Multicultural
+Multiculture
+Multicultured
+Mx
+Mx.
+Native American
+Native Americans
+Non binary
+Nonbinary
+Non-binary
+Oppress
+Oppressed
+Oppresses
+Oppression
+Oppressive
+Orientation
+Orientations
+People + uterus
+People centered
+People-centered
+People-centered care
+Person centered
+Person-centered
+Person-centered care
+Polarization
+Polarize
+Polarized
+Polarizes
+Political
+Pollution
+Population
+Populations
+Pregnant people
+Pregnant person
+Pregnant persons
+Prejudice
+Prejudiced
+Prejudices
+Privilege
+Privileges
+Priviliged
+Promote diversity
+Promotes diversity
+Promoting diversity
+Pronoun
+Pronouns
+Prostitute
+Prostitutes
+Race
+Race and ethnicity
+Race/ethnicity
+Races
+Racial
+Racial diversity
+Racial identity
+Racial inequality
+Racial justice
+Racially
+Racism
+Reservation
+Reservations
+Safe consumption
+Segregate
+Segregated
+Segregates
+Segregation
+Sense of belonging
+Sex
+Sexes
+Sexual preferences
+Sexuality
+Social justice
+Sociocultural
+Socio-cultural
+Socioeconomic
+Socio-economic
+Status
+Statuses
+Stereotype
+Stereotyped
+Stereotypes
+Stereotypical
+Systemic
+Systemically
+They/them
+Tradition
+Traditional
+Traditions
+Trans
+Transgender
+Transgendered
+Transsexual
+Transsexuals
+Trauma
+Traumas
+Traumatic
+Tribe
+Tribes
+Tribal
+Tribally
+Two Spirit
+Two-Spirit
+Two Spirited
+Two-Spirited
+Unconscious bias
+Unconscious biases
+Underappreciated
+Underappreciates
+Under-appreciated
+Underprivileged
+Under-priviliged
+Underrepresentation
+Under-representation
+Underrepresented
+Under-represented
+Under represented
+Underserved
+Under served
+Underserves
+Under serves
+Under-served
+Undervalued
+Undervalues
+Undervalue
+Under-valued
+Undocumented
+Victim
+Victimization
+Victims
+Vulnerable population
+Vulnerable populations
+Woman
+Women
+Women and underrepresented
+Women who have sex with women
+Womyn
+`.trim().split('\n').map(line => line.trim()).filter(Boolean);
+
+    const AI_TERMS = `
+acknowledges
+acknowledging
+addresses
+adept
+adhered
+adhering
+advancement
+advancements
+advancing
+advocates
+advocating
+affirming
+afflicted
+aiding
+akin
+align
+aligning
+aligns
+alongside
+amidst
+assessments
+attains
+attributed
+augmenting
+avenue
+avenues
+bolster
+bolstered
+bolstering
+broader
+burgeoning
+capabilities
+capitalizing
+categorized
+categorizes
+categorizing
+combating
+commendable
+compelling
+complicates
+complicating
+comprehending
+comprising
+consequently
+consolidates
+contributing
+conversely
+correlating
+crafted
+crafting
+culminating
+customizing
+delineates
+delve
+delved
+delves
+delving
+demonstrating
+dependability
+dependable
+detailing
+detrimentally
+diminishes
+diminishing
+discern
+discerned
+discernible
+discerning
+displaying
+disrupts
+distinctions
+distinctive
+elevate
+elevates
+elevating
+elucidate
+elucidates
+elucidating
+embracing
+emerges
+emphasises
+emphasising
+emphasize
+emphasizes
+emphasizing
+employing
+employs
+empowers
+emulating
+emulation
+enabling
+encapsulates
+encompass
+encompassed
+encompasses
+encompassing
+endeavors
+endeavours
+enduring
+enhancements
+enhances
+ensuring
+equipping
+escalating
+evaluates
+evolving
+exacerbating
+examines
+exceeding
+excels
+exceptional
+exceptionally
+exerting
+exhibiting
+exhibits
+expedite
+expediting
+exploration
+explores
+facilitated
+facilitates
+facilitating
+featuring
+formidable
+fostering
+fosters
+foundational
+furnish
+garnered
+garnering
+gauged
+grappling
+groundbreaking
+groundwork
+harness
+harnesses
+harnessing
+heighten
+heightened
+hinder
+hinges
+hinting
+hold
+holds
+illuminates
+illuminating
+imbalances
+impacting
+impede
+impeding
+imperative
+impressive
+inadequately
+incorporates
+incorporating
+influencing
+inherent
+initially
+innovative
+inquiries
+integrates
+integrating
+integration
+interconnectedness
+interplay
+intricacies
+intricate
+intricately
+introduces
+invaluable
+investigates
+involves
+juxtaposed
+leverages
+leveraging
+maintaining
+merges
+methodologies
+meticulous
+meticulously
+multifaceted
+necessitate
+necessitates
+necessitating
+necessity
+notable
+noteworthy
+nuanced
+nuances
+nytimes
+offering
+optimizing
+orchestrating
+outlines
+overlook
+overlooking
+paving
+perative
+persist
+pinpoint
+pinpointed
+pinpointing
+pioneering
+pioneers
+pivotal
+poised
+pose
+posed
+poses
+posing
+predominantly
+preserving
+pressing
+promise
+pronounced
+propelling
+realm
+realms
+recognizing
+refine
+refines
+refining
+remarkable
+renowned
+revealing
+reveals
+revolutionize
+revolutionizing
+revolves
+scrutinize
+scrutinized
+scrutinizing
+seamless
+seamlessly
+seeks
+serves
+serving
+shaping
+shedding
+showcased
+showcases
+showcasing
+signifying
+solidify
+spanned
+spanning
+spurred
+stands
+stemming
+strategically
+streamline
+streamlined
+streamlines
+streamlining
+struggle
+substantiated
+substantiates
+surged
+surmount
+surpass
+surpassed
+surpasses
+surpassing
+swift
+swiftly
+thorough
+transformative
+typically
+ultimately
+uncharted
+uncovering
+underexplored
+underscore
+underscored
+underscores
+underscoring
+unexplored
+unlocking
+unparalleled
+unraveling
+unveil
+unveiled
+unveiling
+unveils
+uphold
+upholding
+urging
+utilizes
+varying
+versatility
+warranting
+yielding
+`.trim().split('\n').map(line => line.trim()).filter(Boolean);
+
+    const TERM_GROUPS = {
+      admin: ADMIN_TERMS,
+      ai: AI_TERMS
+    };
+
+    const RESULT_GROUPS = [
+      { key: 'admin', heading: 'Administration-Flagged Words & Phrases', label: 'Admin' },
+      { key: 'ai', heading: 'Indicators of Artificial Intelligence Use', label: 'AI' }
+    ];
+
+    const RESULT_GROUP_LOOKUP = Object.fromEntries(RESULT_GROUPS.map(group => [group.key, group]));
+
+    // Flagged terms that should display a warning icon
+    const FLAGGED_TERMS = new Set([
+      'American Indian',
+      'American Indians',
+      'Cultural competence',
+      'Cultural responsiveness',
+      'Culturally appropriate',
+      'Culturally congruent',
+      'Culturally informed',
+      'Culturally-informed',
+      'Culturally responsive',
+      'Diverse',
+      'Diverse backgrounds',
+      'Diverse communities',
+      'Diverse community',
+      'Diverse group',
+      'Diverse groups',
+      'Diversified',
+      'Diversify',
+      'Diversifying',
+      'Diversity',
+      'Enhance the diversity',
+      'Enhancing diversity',
+      'Equitable',
+      'Equitableness',
+      'Equity',
+      'Gender identity',
+      'Harm reduction',
+      'Harm reducing',
+      'Inclusion',
+      'Inclusive',
+      'Inclusive leadership',
+      'Inclusiveness',
+      'Inclusivity',
+      'Intersectional',
+      'Intersectionality',
+      'LGBT',
+      'LGBTQ',
+      'LGBTQ+',
+      'LGBTQIA',
+      'Non binary',
+      'Non-binary',
+      'Nonbinary',
+      'Safe consumption',
+      'Traditional',
+      'Traditions',
+      'Trans',
+      'Transgender',
+      'Transgendered',
+      'Two Spirited',
+      'Two-Spirited',
+      'Under-served',
+      'Underserved'
+    ].map(term => term.toLowerCase()));
+
+    // Tooltip message for flagged terms
+    const FLAG_TOOLTIP_MESSAGE = 'Warning! This word has been specifically flagged by grant project officer(s) in at least one prior submission with a CIH researcher.';
+
+    const termGroupInputs = Array.from(document.querySelectorAll('.term-group'));
+
+    function expandTerm(term) {
+      const trimmed = term.trim();
+      if (!trimmed) return [];
+      if (trimmed.includes(' + ')) {
+        const collapsed = trimmed.replace(/\s*\+\s*/g, ' ').replace(/\s+/g, ' ').trim();
+        return [trimmed, collapsed];
+      }
+      return [trimmed];
+    }
+
+    function gatherTerms(groups) {
+      const bucket = new Map();
+      groups.forEach(group => {
+        const list = TERM_GROUPS[group] || [];
+        list.forEach(term => {
+          expandTerm(term).forEach(t => {
+            if (!bucket.has(t)) {
+              bucket.set(t, group);
+            }
+          });
+        });
+      });
+      return Array.from(bucket.entries()).map(([term, group]) => ({ term, group }));
+    }
+
+    function escapeHTML(s) {
+      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    }
+
+    function buildRegex(term) {
+      // escape regex special chars in term
+      const esc = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(esc, 'gi');
+    }
+
+    const WORD_CHAR_RX = /[A-Za-z0-9]/;
+
+    function needsStartBoundary(term) {
+      return WORD_CHAR_RX.test(term[0] || '');
+    }
+
+    function needsEndBoundary(term) {
+      return WORD_CHAR_RX.test(term[term.length - 1] || '');
+    }
+
+    function isWordChar(char) {
+      return !!char && WORD_CHAR_RX.test(char);
+    }
+
+    function findMatches(text, term) {
+      const rx = buildRegex(term);
+      const matches = [];
+      let m;
+      let guard = 0;
+      const enforceStart = needsStartBoundary(term);
+      const enforceEnd = needsEndBoundary(term);
+      while ((m = rx.exec(text))) {
+        if (m[0].length === 0) { if (++guard > 1000) break; rx.lastIndex++; continue; }
+        const start = m.index;
+        const end = start + m[0].length;
+        if (enforceStart && isWordChar(text[start - 1])) continue;
+        if (enforceEnd && isWordChar(text[end])) continue;
+        matches.push({ start, end });
+      }
+      return matches;
+    }
+
+    function makePlainSnippet(text) {
+      return { html: escapeHTML(text), plain: text };
+    }
+
+    async function readFileAsArrayBuffer(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onerror = () => reject(r.error);
+        r.onload = () => resolve(r.result);
+        r.readAsArrayBuffer(file);
+      });
+    }
+
+    async function extractTextFromDocx(file) {
+      const arrayBuffer = await readFileAsArrayBuffer(file);
+      const { value } = await window.mammoth.extractRawText({ arrayBuffer });
+      return value || '';
+    }
+
+    async function extractTextFromXlsx(file) {
+      const arrayBuffer = await readFileAsArrayBuffer(file);
+      const wb = XLSX.read(arrayBuffer, { type: 'array' });
+      let out = [];
+      wb.SheetNames.forEach(name => {
+        const ws = wb.Sheets[name];
+        const csv = XLSX.utils.sheet_to_csv(ws, { blankrows: false });
+        out.push(`\n\n=== SHEET: ${name} ===\n` + csv);
+      });
+      return out.join('\n');
+    }
+
+    function makeSnippets(text, term, context = 40, matches = null) {
+      const hits = matches || findMatches(text, term);
+      return hits.map(({ start, end }) => {
+        const left = Math.max(0, start - context);
+        const right = Math.min(text.length, end + context);
+        const chunk = text.slice(left, right);
+        const matchText = text.slice(start, end);
+        const relativeStart = start - left;
+        const relativeEnd = relativeStart + matchText.length;
+        const before = chunk.slice(0, relativeStart);
+        const after = chunk.slice(relativeEnd);
+        const html = `…${escapeHTML(before)}<mark>${escapeHTML(matchText)}</mark>${escapeHTML(after)}…`;
+        const plain = `…${chunk}…`;
+        return { html, plain };
+      });
+    }
+
+    function groupRowsByTerm(rows) {
+      const groupMap = new Map();
+      rows.forEach(row => {
+        const groupKey = row.group;
+        if (!groupMap.has(groupKey)) {
+          groupMap.set(groupKey, new Map());
+        }
+        const termMap = groupMap.get(groupKey);
+        const termKey = row.term;
+        if (!termMap.has(termKey)) {
+          termMap.set(termKey, { group: groupKey, term: termKey, total: 0, entries: [] });
+        }
+        const bucket = termMap.get(termKey);
+        bucket.total += row.count;
+        bucket.entries.push({ file: row.file, count: row.count, snips: row.snips });
+      });
+
+      const grouped = new Map();
+      groupMap.forEach((termMap, groupKey) => {
+        const buckets = Array.from(termMap.values()).map(bucket => {
+          bucket.entries.sort((a, b) => {
+            if (b.count !== a.count) return b.count - a.count;
+            return String(a.file).localeCompare(String(b.file));
+          });
+          return bucket;
+        });
+        buckets.sort((a, b) => {
+          if (b.total !== a.total) return b.total - a.total;
+          return String(a.term).localeCompare(String(b.term));
+        });
+        grouped.set(groupKey, buckets);
+      });
+
+      return grouped;
+    }
+
+    function renderGroupPanel(heading, termBuckets) {
+      if (!termBuckets.length) {
+        return `<div class="panel"><div class="panel-title">${heading}</div><div class="note">No matches found in selected files.</div></div>`;
+      }
+      const head = `
+        <thead><tr>
+          <th style="width:18%">TERM</th>
+          <th style="width:20%">FILE</th>
+          <th style="width:12%">COUNT</th>
+          <th style="width:50%">SNIPPETS</th>
+        </tr></thead>`;
+      const body = termBuckets.map(bucket => {
+        const isFlagged = FLAGGED_TERMS.has(bucket.term.toLowerCase());
+        const rows = bucket.entries.map((entry, idx) => {
+          const fileCell = `<td class="file-cell">${escapeHTML(entry.file)}</td>`;
+          const countCell = `<td class="count-cell"><span class="pill ${entry.count>0?'ok':'bad'}">${entry.count}</span></td>`;
+          const snippetsCell = `<td class="snip-cell">${(entry.snips || []).map(s => `<code class="snip">${s.html}</code>`).join(' ')}</td>`;
+          if (idx === 0) {
+            const totalClass = bucket.total>0?'ok':'bad';
+            const termBasic = `${escapeHTML(bucket.term)} <span class="pill ${totalClass}">${bucket.total}</span>`;
+            let termContent = termBasic;
+            if (isFlagged) {
+              const tooltipParts = FLAG_TOOLTIP_MESSAGE.split('!');
+              const tooltipHTML = `<strong>${escapeHTML(tooltipParts[0])}!</strong>${escapeHTML(tooltipParts.slice(1).join('!'))}`;
+              termContent = `<div class="term-with-flag"><div>${termBasic}</div><span class="flag-icon"><span class="flag-tooltip">${tooltipHTML}</span></span></div>`;
+            }
+            const termCell = `<td class="term-cell" rowspan="${bucket.entries.length}">${termContent}</td>`;
+            return `<tr>${termCell}${fileCell}${countCell}${snippetsCell}</tr>`;
+          }
+          return `<tr>${fileCell}${countCell}${snippetsCell}</tr>`;
+        }).join('');
+        return rows;
+      }).join('');
+      return `<div class="panel"><div class="panel-title">${heading}</div><table class="results-table">${head}<tbody>${body}</tbody></table></div>`;
+    }
+
+    function renderResultsByGroup(groupedBuckets, selectedGroups) {
+      const groupsInOrder = RESULT_GROUPS.filter(group => selectedGroups.includes(group.key));
+      if (groupsInOrder.length === 0) {
+        return '';
+      }
+      return groupsInOrder.map(group => {
+        const termBuckets = groupedBuckets.get(group.key) || [];
+        return renderGroupPanel(group.heading, termBuckets);
+      }).join('');
+    }
+
+    async function analyze() {
+      const selectedGroups = termGroupInputs.filter(cb => cb.checked).map(cb => cb.value);
+      const termEntries = gatherTerms(selectedGroups);
+      resultsDiv.innerHTML = '';
+      if (termEntries.length === 0) {
+        resultsDiv.innerHTML = `<div class="panel"><div class="note">Select at least one category to scan for keywords.</div></div>`;
+        downloadReportBtn.disabled = true;
+        latestReportRows = null;
+        return;
+      }
+
+      btn.disabled = true; btn.textContent = 'Analyzing…';
+      downloadReportBtn.disabled = true;
+      latestReportRows = null;
+      const chosen = fileBoxes.map(i => i.files?.[0]).filter(Boolean);
+      if (chosen.length === 0) {
+        resultsDiv.innerHTML = `<div class="panel"><div class="note">Add one or more files, then click <em>Analyze Files</em>.</div></div>`;
+        btn.disabled = false; btn.textContent = 'Analyze Files';
+        downloadReportBtn.disabled = true;
+        return;
+      }
+
+      const rows = [];
+      for (const file of chosen) {
+        try {
+          const ext = file.name.toLowerCase().split('.').pop();
+          let text = '';
+          if (ext === 'docx') text = await extractTextFromDocx(file);
+          else if (ext === 'xlsx') text = await extractTextFromXlsx(file);
+          else {
+            rows.push({ file: file.name, term: '(unsupported)', count: 0, snips: [makePlainSnippet('Unsupported file type')], group: selectedGroups[0] || null });
+            continue;
+          }
+          for (const { term, group } of termEntries) {
+            const matches = findMatches(text, term);
+            const count = matches.length;
+            if (count > 0) {
+              const snips = makeSnippets(text, term, 40, matches);
+              rows.push({ file: file.name, term, count, snips, group });
+            }
+          }
+        } catch (e) {
+          rows.push({ file: file.name, term: '(error)', count: 0, snips: [makePlainSnippet(String(e.message || e))], group: selectedGroups[0] || null });
+        }
+      }
+
+      const groupedBuckets = groupRowsByTerm(rows);
+      resultsDiv.innerHTML = renderResultsByGroup(groupedBuckets, selectedGroups);
+
+      const flattened = [];
+      RESULT_GROUPS.filter(group => selectedGroups.includes(group.key)).forEach(group => {
+        const buckets = groupedBuckets.get(group.key) || [];
+        buckets.forEach(bucket => {
+          bucket.entries.forEach(entry => {
+            flattened.push({
+              file: entry.file,
+              term: bucket.term,
+              group: bucket.group,
+              count: entry.count,
+              snips: entry.snips,
+              total: bucket.total
+            });
+          });
+        });
+      });
+
+      latestReportRows = flattened;
+      downloadReportBtn.disabled = false;
+      btn.disabled = false; btn.textContent = 'Analyze Files';
+      resetBtn.disabled = false;
+    }
+
+    btn.addEventListener('click', analyze);
+    resetBtn.addEventListener('click', () => {
+      fileBoxes.forEach(input => { input.value = ''; });
+      termGroupInputs.forEach(input => {
+        input.checked = input.value === 'admin';
+      });
+      resultsDiv.innerHTML = '';
+      btn.disabled = false;
+      btn.textContent = 'Analyze Files';
+      resetBtn.disabled = true;
+      downloadReportBtn.disabled = true;
+      latestReportRows = null;
+    });
+    downloadBtn.addEventListener('click', () => {
+      const csvRows = [];
+      const headers = ['Administration-Flagged Words & Phrases', 'Indicators of Artificial Intelligence Use'];
+      csvRows.push(headers);
+      const maxLen = Math.max(ADMIN_TERMS.length, AI_TERMS.length);
+      for (let i = 0; i < maxLen; i++) {
+        csvRows.push([
+          ADMIN_TERMS[i] || '',
+          AI_TERMS[i] || ''
+        ]);
+      }
+      const csvContent = csvRows
+        .map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(','))
+        .join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'keyword-lists.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+
+    downloadReportBtn.addEventListener('click', () => {
+      if (!latestReportRows) return;
+      const csvRows = [];
+      csvRows.push(['Category', 'Term', 'Term Total', 'File', 'Count', 'Snippets']);
+      if (latestReportRows.length === 0) {
+        csvRows.push(['No matches found', '', '', '', '', '']);
+      } else {
+        latestReportRows.forEach(row => {
+          const snippetText = (row.snips || []).map(s => s.plain).join(' | ');
+          const groupInfo = row.group ? RESULT_GROUP_LOOKUP[row.group] : null;
+          const sourceHeading = groupInfo ? groupInfo.heading : (row.group || '');
+          csvRows.push([
+            sourceHeading,
+            row.term,
+            row.total ?? '',
+            row.file,
+            row.count,
+            snippetText
+          ]);
+        });
+      }
+      const csvContent = csvRows
+        .map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(','))
+        .join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'keyword-report.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
