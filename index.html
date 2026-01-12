@@ -1177,7 +1177,10 @@ yielding
         csvRows.push(['No matches found', '', '', '', '', '']);
       } else {
         latestReportRows.forEach(row => {
-          const snippetText = (row.snips || []).map(s => s.plain).join('\n');
+          const snippetText = (row.snips || [])
+            .map(s => String(s.plain || '').replace(/\s+/g, ' ').trim())
+            .filter(Boolean)
+            .join(' | ');
           const groupInfo = row.group ? RESULT_GROUP_LOOKUP[row.group] : null;
           const sourceHeading = groupInfo ? groupInfo.heading : (row.group || '');
           csvRows.push([
