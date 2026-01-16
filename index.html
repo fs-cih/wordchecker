@@ -1166,8 +1166,8 @@ yielding
               fileMatches.push({ term, matches }); // Store term and its matches
             }
           }
-          // Store the file object and its matches
-          filesData.push({ file, matches: fileMatches, text });
+          // Store the file object and its matches (no need to store text to save memory)
+          filesData.push({ file, matches: fileMatches });
         } catch (e) {
           rows.push({ file: file.name, term: '(error)', count: 0, snips: [makePlainSnippet(String(e.message || e))], group: selectedGroups[0] || null });
         }
@@ -1333,8 +1333,13 @@ yielding
     async function highlightFile(file, matches) {
       const ext = file.name.toLowerCase().split('.').pop();
       
-      if (ext === 'docx' || ext === 'doc' || ext === 'dox') {
+      if (ext === 'docx') {
         return await highlightDocx(file, matches);
+      } else if (ext === 'doc' || ext === 'dox') {
+        // Legacy DOC format is not supported for highlighting
+        // Return original file as it uses binary format, not ZIP-based
+        console.warn('Legacy .doc/.dox format highlighting not supported. Returning original file.');
+        return file;
       } else if (ext === 'pdf') {
         return await highlightPdf(file, matches);
       } else if (ext === 'xlsx' || ext === 'xls') {
@@ -1432,7 +1437,7 @@ yielding
         zip.file('word/document.xml', docXml);
         
         // Generate the modified DOCX
-        const blob = zip.generate({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
         return blob;
       } catch (e) {
         console.error('Error highlighting DOCX:', e);
@@ -1451,16 +1456,21 @@ yielding
         // PDF.js extracts text but doesn't give us the exact positioning needed for highlighting
         // We'll use annotations as a workaround
         
+        // Load PDF once using pdf.js for text extraction
+        let pdfjsDoc = null;
+        if (window.pdfjsLib) {
+          const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
+          pdfjsDoc = await loadingTask.promise;
+        }
+        
         // For each page, extract text and add highlight annotations
         for (let pageNum = 0; pageNum < pages.length; pageNum++) {
           const page = pages[pageNum];
           const { width, height } = page.getSize();
           
           // Get text items with positions using pdf.js
-          if (window.pdfjsLib) {
-            const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
-            const pdf = await loadingTask.promise;
-            const pdfPage = await pdf.getPage(pageNum + 1);
+          if (pdfjsDoc) {
+            const pdfPage = await pdfjsDoc.getPage(pageNum + 1);
             const textContent = await pdfPage.getTextContent();
             
             // Build text string for this page
@@ -1564,7 +1574,7 @@ yielding
             const cell = ws[cellAddress];
             if (cell) {
               if (!cell.s) cell.s = {};
-              cell.s.fgColor = { rgb: 'FFFF00' }; // Yellow background
+              // Apply yellow fill to the cell
               cell.s.fill = { patternType: 'solid', fgColor: { rgb: 'FFFF00' } };
             }
           });
