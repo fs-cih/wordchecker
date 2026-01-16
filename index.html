@@ -70,21 +70,21 @@
     <div class="panel" aria-label="File uploads">
       <div class="cols2x5" role="group" aria-label="File inputs (10)">
         <div class="col">
-          <div class="slot"><label>File 1</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 1 (docx/doc/xlsx/xls/pdf)" /></div>
-          <div class="slot"><label>File 2</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 2 (docx/doc/xlsx/xls/pdf)" /></div>
-          <div class="slot"><label>File 3</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 3 (docx/doc/xlsx/xls/pdf)" /></div>
-          <div class="slot"><label>File 4</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 4 (docx/doc/xlsx/xls/pdf)" /></div>
-          <div class="slot"><label>File 5</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 5 (docx/doc/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 1</label><input class="filebox" type="file" accept=".docx,.doc,.dox,.xlsx,.xls,.pdf" aria-label="File 1 (docx/doc/dox/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 2</label><input class="filebox" type="file" accept=".docx,.doc,.dox,.xlsx,.xls,.pdf" aria-label="File 2 (docx/doc/dox/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 3</label><input class="filebox" type="file" accept=".docx,.doc,.dox,.xlsx,.xls,.pdf" aria-label="File 3 (docx/doc/dox/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 4</label><input class="filebox" type="file" accept=".docx,.doc,.dox,.xlsx,.xls,.pdf" aria-label="File 4 (docx/doc/dox/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 5</label><input class="filebox" type="file" accept=".docx,.doc,.dox,.xlsx,.xls,.pdf" aria-label="File 5 (docx/doc/dox/xlsx/xls/pdf)" /></div>
         </div>
         <div class="col">
-          <div class="slot"><label>File 6</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 6 (docx/doc/xlsx/xls/pdf)" /></div>
-          <div class="slot"><label>File 7</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 7 (docx/doc/xlsx/xls/pdf)" /></div>
-          <div class="slot"><label>File 8</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 8 (docx/doc/xlsx/xls/pdf)" /></div>
-          <div class="slot"><label>File 9</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 9 (docx/doc/xlsx/xls/pdf)" /></div>
-          <div class="slot"><label>File 10</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 10 (docx/doc/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 6</label><input class="filebox" type="file" accept=".docx,.doc,.dox,.xlsx,.xls,.pdf" aria-label="File 6 (docx/doc/dox/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 7</label><input class="filebox" type="file" accept=".docx,.doc,.dox,.xlsx,.xls,.pdf" aria-label="File 7 (docx/doc/dox/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 8</label><input class="filebox" type="file" accept=".docx,.doc,.dox,.xlsx,.xls,.pdf" aria-label="File 8 (docx/doc/dox/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 9</label><input class="filebox" type="file" accept=".docx,.doc,.dox,.xlsx,.xls,.pdf" aria-label="File 9 (docx/doc/dox/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 10</label><input class="filebox" type="file" accept=".docx,.doc,.dox,.xlsx,.xls,.pdf" aria-label="File 10 (docx/doc/dox/xlsx/xls/pdf)" /></div>
         </div>
       </div>
-      <div class="note" style="margin-top:8px;">Supported formats: <code>.docx</code>, <code>.doc</code>, <code>.xlsx</code>, <code>.xls</code>, <code>.pdf</code></div>
+      <div class="note" style="margin-top:8px;">Supported formats: <code>.docx</code>, <code>.doc</code>, <code>.dox</code>, <code>.xlsx</code>, <code>.xls</code>, <code>.pdf</code></div>
     </div>
 
     <div class="panel" style="margin-top:16px;" aria-labelledby="checkfor-label">
@@ -1135,7 +1135,7 @@ yielding
           const ext = file.name.toLowerCase().split('.').pop();
           let text = '';
           if (ext === 'docx') text = await extractTextFromDocx(file);
-          else if (ext === 'doc') text = await extractTextFromDoc(file);
+          else if (ext === 'doc' || ext === 'dox') text = await extractTextFromDoc(file);
           else if (ext === 'xlsx') text = await extractTextFromXlsx(file);
           else if (ext === 'xls') text = await extractTextFromXls(file);
           else if (ext === 'pdf') text = await extractTextFromPdf(file);
