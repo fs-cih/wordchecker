@@ -119,6 +119,9 @@
   <script src="https://unpkg.com/docxtemplater@3.42.3/build/docxtemplater.js"></script>
 
   <script>
+    // Constants
+    const DEFAULT_PDF_TEXT_HEIGHT = 12; // Default height for PDF text when not available
+    
     const fileBoxes = Array.from(document.querySelectorAll('.filebox'));
     const btn = document.getElementById('go');
     const downloadBtn = document.getElementById('download');
@@ -1309,7 +1312,11 @@ yielding
             zip.file(`highlighted_${fileData.file.name}`, highlightedBlob);
           }
           
-          const zipBlob = await zip.generateAsync({ type: 'blob' });
+          const zipBlob = await zip.generateAsync({ 
+            type: 'blob',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 }
+          });
           const url = URL.createObjectURL(zipBlob);
           const link = document.createElement('a');
           link.href = url;
@@ -1437,7 +1444,7 @@ yielding
         zip.file('word/document.xml', docXml);
         
         // Generate the modified DOCX
-        const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        const blob = await zip.generateAsync({ type: 'blob' });
         return blob;
       } catch (e) {
         console.error('Error highlighting DOCX:', e);
@@ -1459,8 +1466,13 @@ yielding
         // Load PDF once using pdf.js for text extraction
         let pdfjsDoc = null;
         if (window.pdfjsLib) {
-          const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
-          pdfjsDoc = await loadingTask.promise;
+          try {
+            const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
+            pdfjsDoc = await loadingTask.promise;
+          } catch (pdfError) {
+            console.warn('Failed to load PDF with pdf.js for highlighting:', pdfError);
+            // Continue without highlighting if pdf.js fails
+          }
         }
         
         // For each page, extract text and add highlight annotations
@@ -1500,7 +1512,7 @@ yielding
                     const x = e;
                     const y = height - f; // PDF coordinates are bottom-up
                     const w = item.width;
-                    const h = item.height || 12; // Default height if not available
+                    const h = item.height || DEFAULT_PDF_TEXT_HEIGHT;
                     
                     // Add a yellow highlight annotation
                     page.drawRectangle({
