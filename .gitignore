@@ -1,0 +1,11 @@
+# Screenshots directory for documentation
+screenshots/
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
