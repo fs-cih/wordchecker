@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Keyword Scanner — Word/Excel (10 uploads)</title>
+  <title>Keyword Scanner — Document Scanner (10 uploads)</title>
   <style>
     :root { --bg:#f5f6fb; --card:#ffffff; --ink:#1a2134; --muted:#5d6783; --accent:#3b6ee7; --bad:#d34242; --ok:#2f9c62; }
     html, body { height: 100%; }
@@ -70,21 +70,21 @@
     <div class="panel" aria-label="File uploads">
       <div class="cols2x5" role="group" aria-label="File inputs (10)">
         <div class="col">
-          <div class="slot"><label>File 1</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 1 (docx/xlsx)" /></div>
-          <div class="slot"><label>File 2</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 2 (docx/xlsx)" /></div>
-          <div class="slot"><label>File 3</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 3 (docx/xlsx)" /></div>
-          <div class="slot"><label>File 4</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 4 (docx/xlsx)" /></div>
-          <div class="slot"><label>File 5</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 5 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 1</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 1 (docx/doc/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 2</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 2 (docx/doc/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 3</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 3 (docx/doc/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 4</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 4 (docx/doc/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 5</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 5 (docx/doc/xlsx/xls/pdf)" /></div>
         </div>
         <div class="col">
-          <div class="slot"><label>File 6</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 6 (docx/xlsx)" /></div>
-          <div class="slot"><label>File 7</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 7 (docx/xlsx)" /></div>
-          <div class="slot"><label>File 8</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 8 (docx/xlsx)" /></div>
-          <div class="slot"><label>File 9</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 9 (docx/xlsx)" /></div>
-          <div class="slot"><label>File 10</label><input class="filebox" type="file" accept=".docx,.xlsx" aria-label="File 10 (docx/xlsx)" /></div>
+          <div class="slot"><label>File 6</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 6 (docx/doc/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 7</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 7 (docx/doc/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 8</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 8 (docx/doc/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 9</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 9 (docx/doc/xlsx/xls/pdf)" /></div>
+          <div class="slot"><label>File 10</label><input class="filebox" type="file" accept=".docx,.doc,.xlsx,.xls,.pdf" aria-label="File 10 (docx/doc/xlsx/xls/pdf)" /></div>
         </div>
       </div>
-      <div class="note" style="margin-top:8px;">Note: Legacy <code>.doc</code> and <code>.xls</code> are not supported. Convert to .docx or .xlsx before uploading.</div>
+      <div class="note" style="margin-top:8px;">Supported formats: <code>.docx</code>, <code>.doc</code>, <code>.xlsx</code>, <code>.xls</code>, <code>.pdf</code></div>
     </div>
 
     <div class="panel" style="margin-top:16px;" aria-labelledby="checkfor-label">
@@ -111,6 +111,7 @@
   <!-- External libs -->
   <script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
   <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
   <script>
     const fileBoxes = Array.from(document.querySelectorAll('.filebox'));
@@ -959,6 +960,53 @@ yielding
       return out.join('\n');
     }
 
+    async function extractTextFromDoc(file) {
+      // Legacy .doc format - attempt to extract using mammoth
+      // Note: mammoth primarily supports .docx, but may extract some text from .doc
+      try {
+        const arrayBuffer = await readFileAsArrayBuffer(file);
+        const { value } = await window.mammoth.extractRawText({ arrayBuffer });
+        return value || '';
+      } catch (e) {
+        throw new Error('Legacy .doc format has limited support. Please convert to .docx for best results.');
+      }
+    }
+
+    async function extractTextFromXls(file) {
+      // Legacy .xls format - XLSX library supports BIFF8 format
+      const arrayBuffer = await readFileAsArrayBuffer(file);
+      const wb = XLSX.read(arrayBuffer, { type: 'array' });
+      let out = [];
+      wb.SheetNames.forEach(name => {
+        const ws = wb.Sheets[name];
+        const csv = XLSX.utils.sheet_to_csv(ws, { blankrows: false });
+        out.push(`\n\n=== SHEET: ${name} ===\n` + csv);
+      });
+      return out.join('\n');
+    }
+
+    async function extractTextFromPdf(file) {
+      const arrayBuffer = await readFileAsArrayBuffer(file);
+      
+      // Configure PDF.js worker
+      if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+        
+        let fullText = '';
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str).join(' ');
+          fullText += `\n\n=== PAGE ${pageNum} ===\n${pageText}`;
+        }
+        return fullText;
+      }
+      throw new Error('PDF.js library not loaded');
+    }
+
     function makeSnippets(text, term, context = 40, matches = null) {
       const hits = matches || findMatches(text, term);
       return hits.map(({ start, end }) => {
@@ -1087,7 +1135,10 @@ yielding
           const ext = file.name.toLowerCase().split('.').pop();
           let text = '';
           if (ext === 'docx') text = await extractTextFromDocx(file);
+          else if (ext === 'doc') text = await extractTextFromDoc(file);
           else if (ext === 'xlsx') text = await extractTextFromXlsx(file);
+          else if (ext === 'xls') text = await extractTextFromXls(file);
+          else if (ext === 'pdf') text = await extractTextFromPdf(file);
           else {
             rows.push({ file: file.name, term: '(unsupported)', count: 0, snips: [makePlainSnippet('Unsupported file type')], group: selectedGroups[0] || null });
             continue;
