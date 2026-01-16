@@ -1145,9 +1145,9 @@ yielding
       }
 
       const rows = [];
-      const filesData = []; // Store file objects and their matches
+      const filesData = []; // Store file objects and matched terms for highlighting
       for (const file of chosen) {
-        const fileMatches = []; // Store all term matches for this file
+        const matchedTerms = new Set(); // Store matched terms for this file
         try {
           const ext = file.name.toLowerCase().split('.').pop();
           let text = '';
@@ -1166,11 +1166,11 @@ yielding
             if (count > 0) {
               const snips = makeSnippets(text, term, 40, matches);
               rows.push({ file: file.name, term, count, snips, group });
-              fileMatches.push({ term, matches }); // Store term and its matches
+              matchedTerms.add(term);
             }
           }
-          // Store the file object and its matches (no need to store text to save memory)
-          filesData.push({ file, matches: fileMatches });
+          // Store the file object and matched terms (no need to store text to save memory)
+          filesData.push({ file, terms: Array.from(matchedTerms) });
         } catch (e) {
           rows.push({ file: file.name, term: '(error)', count: 0, snips: [makePlainSnippet(String(e.message || e))], group: selectedGroups[0] || null });
         }
@@ -1294,7 +1294,7 @@ yielding
         if (analyzedFilesData.length === 1) {
           // Single file: download directly with highlights
           const fileData = analyzedFilesData[0];
-          const highlightedBlob = await highlightFile(fileData.file, fileData.matches);
+          const highlightedBlob = await highlightFile(fileData.file, fileData.terms);
           const url = URL.createObjectURL(highlightedBlob);
           const link = document.createElement('a');
           link.href = url;
@@ -1308,7 +1308,7 @@ yielding
           const zip = new JSZip();
           
           for (const fileData of analyzedFilesData) {
-            const highlightedBlob = await highlightFile(fileData.file, fileData.matches);
+            const highlightedBlob = await highlightFile(fileData.file, fileData.terms);
             zip.file(`highlighted_${fileData.file.name}`, highlightedBlob);
           }
           
@@ -1337,20 +1337,20 @@ yielding
     });
 
     // Function to highlight a file based on matches
-    async function highlightFile(file, matches) {
+    async function highlightFile(file, terms) {
       const ext = file.name.toLowerCase().split('.').pop();
       
       if (ext === 'docx') {
-        return await highlightDocx(file, matches);
+        return await highlightDocx(file, terms);
       } else if (ext === 'dox') {
         // .dox format is not supported for highlighting
         // Return original file as it may use binary format, not ZIP-based
         console.warn('.dox format highlighting not supported. Returning original file.');
         return file;
       } else if (ext === 'pdf') {
-        return await highlightPdf(file, matches);
+        return await highlightPdf(file, terms);
       } else if (ext === 'xlsx' || ext === 'xls') {
-        return await highlightXlsx(file, matches);
+        return await highlightXlsx(file, terms);
       } else {
         // Unsupported format, return original file
         return file;
@@ -1358,8 +1358,9 @@ yielding
     }
 
     // Highlight DOCX files
-    async function highlightDocx(file, matches) {
+    async function highlightDocx(file, terms) {
       try {
+        if (!terms || terms.length === 0) return file;
         const arrayBuffer = await readFileAsArrayBuffer(file);
         const zip = new PizZip(arrayBuffer);
         
@@ -1369,15 +1370,6 @@ yielding
         // For each match, we need to wrap the text in a highlight run
         // This is complex because we need to maintain XML structure
         // We'll use a simpler approach: modify text runs to add highlight property
-        
-        // Sort matches by position (descending) to avoid offset issues
-        const allMatches = [];
-        matches.forEach(({ term, matches: positions }) => {
-          positions.forEach(pos => {
-            allMatches.push({ term, start: pos.start, end: pos.end });
-          });
-        });
-        allMatches.sort((a, b) => b.start - a.start);
         
         // Extract all text from XML
         const textNodeRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
@@ -1395,6 +1387,15 @@ yielding
           });
           textContent += match[1];
         }
+
+        const allMatches = [];
+        terms.forEach(term => {
+          findMatches(textContent, term).forEach(pos => {
+            allMatches.push({ term, start: pos.start, end: pos.end });
+          });
+        });
+
+        if (allMatches.length === 0) return file;
         
         // For each match position, find the text nodes it spans and mark them for highlighting
         const nodesToHighlight = new Set();
@@ -1453,8 +1454,9 @@ yielding
     }
 
     // Highlight PDF files
-    async function highlightPdf(file, matches) {
+    async function highlightPdf(file, terms) {
       try {
+        if (!terms || terms.length === 0) return file;
         const arrayBuffer = await readFileAsArrayBuffer(file);
         const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
         const pages = pdfDoc.getPages();
@@ -1489,7 +1491,7 @@ yielding
             let pageText = '';
             const textItems = textContent.items.map(item => {
               const start = pageText.length;
-              pageText += item.str;
+              pageText += item.str + ' ';
               const end = pageText.length;
               return {
                 str: item.str,
@@ -1502,7 +1504,8 @@ yielding
             });
             
             // For each match, find overlapping text items and add highlights
-            matches.forEach(({ term, matches: positions }) => {
+            terms.forEach(term => {
+              const positions = findMatches(pageText, term);
               positions.forEach(({ start, end }) => {
                 // Find text items that overlap with this match
                 textItems.forEach(item => {
@@ -1540,8 +1543,9 @@ yielding
     }
 
     // Highlight XLSX files
-    async function highlightXlsx(file, matches) {
+    async function highlightXlsx(file, terms) {
       try {
+        if (!terms || terms.length === 0) return file;
         const arrayBuffer = await readFileAsArrayBuffer(file);
         const wb = XLSX.read(arrayBuffer, { type: 'array', cellStyles: true });
         
@@ -1550,36 +1554,20 @@ yielding
           const ws = wb.Sheets[sheetName];
           const range = XLSX.utils.decode_range(ws['!ref']);
           
-          // Build a text representation to find matches
-          let sheetText = '';
-          const cellMap = new Map(); // Map text position to cell address
-          
+          const cellsToHighlight = new Set();
           for (let R = range.s.r; R <= range.e.r; ++R) {
             for (let C = range.s.c; C <= range.e.c; ++C) {
               const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
               const cell = ws[cellAddress];
-              if (cell && cell.v) {
+              if (cell && cell.v != null) {
                 const cellText = String(cell.v);
-                const start = sheetText.length;
-                sheetText += cellText + '\n';
-                const end = sheetText.length;
-                cellMap.set(cellAddress, { start, end, text: cellText });
+                const hasMatch = terms.some(term => findMatches(cellText, term).length > 0);
+                if (hasMatch) {
+                  cellsToHighlight.add(cellAddress);
+                }
               }
             }
           }
-          
-          // Find which cells contain matches
-          const cellsToHighlight = new Set();
-          matches.forEach(({ term, matches: positions }) => {
-            positions.forEach(({ start, end }) => {
-              // Check which cells overlap with this match
-              cellMap.forEach((cellInfo, cellAddress) => {
-                if (cellInfo.start < end && cellInfo.end > start) {
-                  cellsToHighlight.add(cellAddress);
-                }
-              });
-            });
-          });
           
           // Apply yellow background to matched cells
           cellsToHighlight.forEach(cellAddress => {
