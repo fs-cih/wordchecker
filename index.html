@@ -26,7 +26,7 @@
     button.primary:disabled { opacity: .6; cursor: not-allowed; }
     button.secondary { background: var(--accent); color: #f8f9ff; border: none; border-radius: 12px; padding: 12px 18px; font-weight: 600; cursor: pointer; }
     button.secondary:disabled { opacity: .6; cursor: not-allowed; }
-    #download-report:disabled { background: #ffffff; color: var(--muted); border: 1px solid rgba(17,24,39,.12); opacity: 1; cursor: not-allowed; }
+    #download-report:disabled, #download-files:disabled { background: #ffffff; color: var(--muted); border: 1px solid rgba(17,24,39,.12); opacity: 1; cursor: not-allowed; }
     button.reset { background: #ffffff; color: var(--muted); border: 1px solid rgba(17,24,39,.12); border-radius: 12px; padding: 12px 18px; font-weight: 600; cursor: not-allowed; transition: background-color .2s, color .2s; }
     button.reset:not(:disabled) { background: #7b1e1e; color: #f8f9ff; border: none; cursor: pointer; }
     .results { margin-top: 20px; }
@@ -97,6 +97,7 @@
         <button id="go" class="primary">Analyze Files</button>
         <button id="download" class="secondary">Download Word Lists</button>
         <button id="download-report" class="secondary" disabled>Download Report</button>
+        <button id="download-files" class="secondary" disabled>Download Files</button>
         <button id="reset" class="reset" disabled>Reset Form</button>
       </div>
     </div>
@@ -112,15 +113,24 @@
   <script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
   <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://unpkg.com/pizzip@3.1.6/dist/pizzip.min.js"></script>
+  <script src="https://unpkg.com/docxtemplater@3.42.3/build/docxtemplater.js"></script>
 
   <script>
+    // Constants
+    const DEFAULT_PDF_TEXT_HEIGHT = 12; // Default height for PDF text when not available
+    
     const fileBoxes = Array.from(document.querySelectorAll('.filebox'));
     const btn = document.getElementById('go');
     const downloadBtn = document.getElementById('download');
     const downloadReportBtn = document.getElementById('download-report');
+    const downloadFilesBtn = document.getElementById('download-files');
     const resetBtn = document.getElementById('reset');
     const resultsDiv = document.getElementById('results');
     let latestReportRows = null;
+    let analyzedFilesData = null; // Store files and their matches for highlighting
 
     const ADMIN_TERMS = `
 2S
@@ -1114,23 +1124,30 @@ yielding
       if (termEntries.length === 0) {
         resultsDiv.innerHTML = `<div class="panel"><div class="note">Select at least one category to scan for keywords.</div></div>`;
         downloadReportBtn.disabled = true;
+        downloadFilesBtn.disabled = true;
         latestReportRows = null;
+        analyzedFilesData = null;
         return;
       }
 
       btn.disabled = true; btn.textContent = 'Analyzing…';
       downloadReportBtn.disabled = true;
+      downloadFilesBtn.disabled = true;
       latestReportRows = null;
+      analyzedFilesData = null;
       const chosen = fileBoxes.map(i => i.files?.[0]).filter(Boolean);
       if (chosen.length === 0) {
         resultsDiv.innerHTML = `<div class="panel"><div class="note">Add one or more files, then click <em>Analyze Files</em>.</div></div>`;
         btn.disabled = false; btn.textContent = 'Analyze Files';
         downloadReportBtn.disabled = true;
+        downloadFilesBtn.disabled = true;
         return;
       }
 
       const rows = [];
+      const filesData = []; // Store file objects and their matches
       for (const file of chosen) {
+        const fileMatches = []; // Store all term matches for this file
         try {
           const ext = file.name.toLowerCase().split('.').pop();
           let text = '';
@@ -1149,12 +1166,17 @@ yielding
             if (count > 0) {
               const snips = makeSnippets(text, term, 40, matches);
               rows.push({ file: file.name, term, count, snips, group });
+              fileMatches.push({ term, matches }); // Store term and its matches
             }
           }
+          // Store the file object and its matches (no need to store text to save memory)
+          filesData.push({ file, matches: fileMatches });
         } catch (e) {
           rows.push({ file: file.name, term: '(error)', count: 0, snips: [makePlainSnippet(String(e.message || e))], group: selectedGroups[0] || null });
         }
       }
+      
+      analyzedFilesData = filesData; // Save for download
 
       const groupedBuckets = groupRowsByTerm(rows);
       resultsDiv.innerHTML = renderResultsByGroup(groupedBuckets, selectedGroups);
@@ -1178,6 +1200,7 @@ yielding
 
       latestReportRows = flattened;
       downloadReportBtn.disabled = false;
+      downloadFilesBtn.disabled = analyzedFilesData.length === 0; // Enable if we have files
       btn.disabled = false; btn.textContent = 'Analyze Files';
       resetBtn.disabled = false;
     }
@@ -1193,7 +1216,9 @@ yielding
       btn.textContent = 'Analyze Files';
       resetBtn.disabled = true;
       downloadReportBtn.disabled = true;
+      downloadFilesBtn.disabled = true;
       latestReportRows = null;
+      analyzedFilesData = null;
     });
     downloadBtn.addEventListener('click', () => {
       const csvRows = [];
@@ -1257,6 +1282,324 @@ yielding
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     });
+
+    // Download Files with Highlighting Handler
+    downloadFilesBtn.addEventListener('click', async () => {
+      if (!analyzedFilesData || analyzedFilesData.length === 0) return;
+      
+      try {
+        downloadFilesBtn.disabled = true;
+        downloadFilesBtn.textContent = 'Processing...';
+
+        if (analyzedFilesData.length === 1) {
+          // Single file: download directly with highlights
+          const fileData = analyzedFilesData[0];
+          const highlightedBlob = await highlightFile(fileData.file, fileData.matches);
+          const url = URL.createObjectURL(highlightedBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `highlighted_${fileData.file.name}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        } else {
+          // Multiple files: create a ZIP
+          const zip = new JSZip();
+          
+          for (const fileData of analyzedFilesData) {
+            const highlightedBlob = await highlightFile(fileData.file, fileData.matches);
+            zip.file(`highlighted_${fileData.file.name}`, highlightedBlob);
+          }
+          
+          const zipBlob = await zip.generateAsync({ 
+            type: 'blob',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 }
+          });
+          const url = URL.createObjectURL(zipBlob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'highlighted_files.zip';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
+
+        downloadFilesBtn.disabled = false;
+        downloadFilesBtn.textContent = 'Download Files';
+      } catch (e) {
+        alert('Error creating highlighted files: ' + (e.message || e));
+        downloadFilesBtn.disabled = false;
+        downloadFilesBtn.textContent = 'Download Files';
+      }
+    });
+
+    // Function to highlight a file based on matches
+    async function highlightFile(file, matches) {
+      const ext = file.name.toLowerCase().split('.').pop();
+      
+      if (ext === 'docx') {
+        return await highlightDocx(file, matches);
+      } else if (ext === 'doc' || ext === 'dox') {
+        // Legacy DOC format is not supported for highlighting
+        // Return original file as it uses binary format, not ZIP-based
+        console.warn('Legacy .doc/.dox format highlighting not supported. Returning original file.');
+        return file;
+      } else if (ext === 'pdf') {
+        return await highlightPdf(file, matches);
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        return await highlightXlsx(file, matches);
+      } else {
+        // Unsupported format, return original file
+        return file;
+      }
+    }
+
+    // Highlight DOCX files
+    async function highlightDocx(file, matches) {
+      try {
+        const arrayBuffer = await readFileAsArrayBuffer(file);
+        const zip = new PizZip(arrayBuffer);
+        
+        // Read document.xml
+        let docXml = zip.file('word/document.xml').asText();
+        
+        // For each match, we need to wrap the text in a highlight run
+        // This is complex because we need to maintain XML structure
+        // We'll use a simpler approach: modify text runs to add highlight property
+        
+        // Sort matches by position (descending) to avoid offset issues
+        const allMatches = [];
+        matches.forEach(({ term, matches: positions }) => {
+          positions.forEach(pos => {
+            allMatches.push({ term, start: pos.start, end: pos.end });
+          });
+        });
+        allMatches.sort((a, b) => b.start - a.start);
+        
+        // Extract all text from XML
+        const textNodeRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+        let textContent = '';
+        let textNodes = [];
+        let match;
+        
+        while ((match = textNodeRegex.exec(docXml)) !== null) {
+          textNodes.push({
+            fullMatch: match[0],
+            text: match[1],
+            index: match.index,
+            start: textContent.length,
+            end: textContent.length + match[1].length
+          });
+          textContent += match[1];
+        }
+        
+        // For each match position, find the text nodes it spans and mark them for highlighting
+        const nodesToHighlight = new Set();
+        allMatches.forEach(({ start, end }) => {
+          textNodes.forEach((node, idx) => {
+            // Check if this node overlaps with the match
+            if (node.start < end && node.end > start) {
+              nodesToHighlight.add(idx);
+            }
+          });
+        });
+        
+        // Apply highlighting by modifying the XML
+        // We'll add a highlight tag before each marked text node
+        let offset = 0;
+        textNodes.forEach((node, idx) => {
+          if (nodesToHighlight.has(idx)) {
+            const nodePos = node.index + offset;
+            // Find the <w:r> (run) containing this text node
+            const runStart = docXml.lastIndexOf('<w:r>', nodePos);
+            const runPropsEnd = docXml.indexOf('</w:rPr>', runStart);
+            
+            if (runStart !== -1) {
+              // Add highlight property
+              const highlightXml = '<w:highlight w:val="yellow"/>';
+              let insertPos;
+              
+              if (runPropsEnd !== -1 && runPropsEnd < nodePos) {
+                // Insert before closing rPr tag
+                insertPos = runPropsEnd;
+              } else {
+                // No rPr exists, create one
+                const rprStart = docXml.indexOf('>', runStart) + 1;
+                const rprXml = '<w:rPr>' + highlightXml + '</w:rPr>';
+                docXml = docXml.slice(0, rprStart) + rprXml + docXml.slice(rprStart);
+                offset += rprXml.length;
+                return;
+              }
+              
+              docXml = docXml.slice(0, insertPos) + highlightXml + docXml.slice(insertPos);
+              offset += highlightXml.length;
+            }
+          }
+        });
+        
+        // Update the document.xml in the zip
+        zip.file('word/document.xml', docXml);
+        
+        // Generate the modified DOCX
+        const blob = await zip.generateAsync({ type: 'blob' });
+        return blob;
+      } catch (e) {
+        console.error('Error highlighting DOCX:', e);
+        return file; // Return original file on error
+      }
+    }
+
+    // Highlight PDF files
+    async function highlightPdf(file, matches) {
+      try {
+        const arrayBuffer = await readFileAsArrayBuffer(file);
+        const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+        const pages = pdfDoc.getPages();
+        
+        // Note: Highlighting text in PDFs is complex because we need to know the exact coordinates
+        // PDF.js extracts text but doesn't give us the exact positioning needed for highlighting
+        // We'll use annotations as a workaround
+        
+        // Load PDF once using pdf.js for text extraction
+        let pdfjsDoc = null;
+        if (window.pdfjsLib) {
+          try {
+            const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
+            pdfjsDoc = await loadingTask.promise;
+          } catch (pdfError) {
+            console.warn('Failed to load PDF with pdf.js for highlighting:', pdfError);
+            // Continue without highlighting if pdf.js fails
+          }
+        }
+        
+        // For each page, extract text and add highlight annotations
+        for (let pageNum = 0; pageNum < pages.length; pageNum++) {
+          const page = pages[pageNum];
+          const { width, height } = page.getSize();
+          
+          // Get text items with positions using pdf.js
+          if (pdfjsDoc) {
+            const pdfPage = await pdfjsDoc.getPage(pageNum + 1);
+            const textContent = await pdfPage.getTextContent();
+            
+            // Build text string for this page
+            let pageText = '';
+            const textItems = textContent.items.map(item => {
+              const start = pageText.length;
+              pageText += item.str;
+              const end = pageText.length;
+              return {
+                str: item.str,
+                transform: item.transform,
+                width: item.width,
+                height: item.height,
+                start,
+                end
+              };
+            });
+            
+            // For each match, find overlapping text items and add highlights
+            matches.forEach(({ term, matches: positions }) => {
+              positions.forEach(({ start, end }) => {
+                // Find text items that overlap with this match
+                textItems.forEach(item => {
+                  if (item.start < end && item.end > start) {
+                    // This text item is part of the match
+                    const [a, b, c, d, e, f] = item.transform;
+                    const x = e;
+                    const y = height - f; // PDF coordinates are bottom-up
+                    const w = item.width;
+                    const h = item.height || DEFAULT_PDF_TEXT_HEIGHT;
+                    
+                    // Add a yellow highlight annotation
+                    page.drawRectangle({
+                      x: x,
+                      y: y - h,
+                      width: w,
+                      height: h,
+                      color: PDFLib.rgb(1, 1, 0), // Yellow
+                      opacity: 0.3,
+                      borderWidth: 0
+                    });
+                  }
+                });
+              });
+            });
+          }
+        }
+        
+        const pdfBytes = await pdfDoc.save();
+        return new Blob([pdfBytes], { type: 'application/pdf' });
+      } catch (e) {
+        console.error('Error highlighting PDF:', e);
+        return file; // Return original file on error
+      }
+    }
+
+    // Highlight XLSX files
+    async function highlightXlsx(file, matches) {
+      try {
+        const arrayBuffer = await readFileAsArrayBuffer(file);
+        const wb = XLSX.read(arrayBuffer, { type: 'array', cellStyles: true });
+        
+        // For each sheet, find cells with matches and highlight them
+        wb.SheetNames.forEach(sheetName => {
+          const ws = wb.Sheets[sheetName];
+          const range = XLSX.utils.decode_range(ws['!ref']);
+          
+          // Build a text representation to find matches
+          let sheetText = '';
+          const cellMap = new Map(); // Map text position to cell address
+          
+          for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+              const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+              const cell = ws[cellAddress];
+              if (cell && cell.v) {
+                const cellText = String(cell.v);
+                const start = sheetText.length;
+                sheetText += cellText + '\n';
+                const end = sheetText.length;
+                cellMap.set(cellAddress, { start, end, text: cellText });
+              }
+            }
+          }
+          
+          // Find which cells contain matches
+          const cellsToHighlight = new Set();
+          matches.forEach(({ term, matches: positions }) => {
+            positions.forEach(({ start, end }) => {
+              // Check which cells overlap with this match
+              cellMap.forEach((cellInfo, cellAddress) => {
+                if (cellInfo.start < end && cellInfo.end > start) {
+                  cellsToHighlight.add(cellAddress);
+                }
+              });
+            });
+          });
+          
+          // Apply yellow background to matched cells
+          cellsToHighlight.forEach(cellAddress => {
+            const cell = ws[cellAddress];
+            if (cell) {
+              if (!cell.s) cell.s = {};
+              // Apply yellow fill to the cell
+              cell.s.fill = { patternType: 'solid', fgColor: { rgb: 'FFFF00' } };
+            }
+          });
+        });
+        
+        // Write the workbook with styles
+        const wbout = XLSX.write(wb, { type: 'array', bookType: 'xlsx', cellStyles: true });
+        return new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      } catch (e) {
+        console.error('Error highlighting XLSX:', e);
+        return file; // Return original file on error
+      }
+    }
   </script>
 </body>
 </html>
