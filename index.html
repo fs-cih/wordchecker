@@ -971,14 +971,14 @@ yielding
     }
 
     async function extractTextFromDoc(file) {
-      // Legacy .dox format - attempt to extract using mammoth
-      // Note: mammoth primarily supports .docx, but may extract some text from .dox
+      // .dox format - attempt to extract using mammoth
+      // Note: mammoth primarily supports .docx; .dox extraction may have limited support
       try {
         const arrayBuffer = await readFileAsArrayBuffer(file);
         const { value } = await window.mammoth.extractRawText({ arrayBuffer });
         return value || '';
       } catch (e) {
-        throw new Error('Legacy .dox format has limited support. Please convert to .docx for best results.');
+        throw new Error('.dox format has limited support. Please convert to .docx for best results.');
       }
     }
 
@@ -1343,9 +1343,9 @@ yielding
       if (ext === 'docx') {
         return await highlightDocx(file, matches);
       } else if (ext === 'dox') {
-        // Legacy DOX format is not supported for highlighting
-        // Return original file as it uses binary format, not ZIP-based
-        console.warn('Legacy .dox format highlighting not supported. Returning original file.');
+        // .dox format is not supported for highlighting
+        // Return original file as it may use binary format, not ZIP-based
+        console.warn('.dox format highlighting not supported. Returning original file.');
         return file;
       } else if (ext === 'pdf') {
         return await highlightPdf(file, matches);
