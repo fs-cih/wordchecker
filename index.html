@@ -1368,12 +1368,18 @@ yielding
       downloadReportBtn.disabled = true;
       latestReportRows = null;
     });
-    downloadBtn.addEventListener('click', () => {
-      // Check if XLSX library is available
+
+    // Helper function to check if XLSX library is available
+    function checkXLSXAvailable() {
       if (typeof XLSX === 'undefined') {
-        alert('Excel export functionality is currently unavailable. Please refresh the page and try again.');
-        return;
+        alert('Excel export functionality is currently unavailable. This may be due to network issues loading required libraries. Please refresh the page or contact support if the issue persists.');
+        return false;
       }
+      return true;
+    }
+
+    downloadBtn.addEventListener('click', () => {
+      if (!checkXLSXAvailable()) return;
       
       // Helper function to capitalize first letter of a word
       const capitalizeFirstLetter = (word) => {
@@ -1420,12 +1426,7 @@ yielding
 
     downloadReportBtn.addEventListener('click', () => {
       if (!latestReportRows) return;
-      
-      // Check if XLSX library is available
-      if (typeof XLSX === 'undefined') {
-        alert('Excel export functionality is currently unavailable. Please refresh the page and try again.');
-        return;
-      }
+      if (!checkXLSXAvailable()) return;
       
       // Create array of arrays for Excel
       const excelRows = [];
