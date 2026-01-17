@@ -95,8 +95,8 @@
       </div>
       <div class="check-actions">
         <button id="go" class="primary">Analyze Files</button>
-        <button id="download" class="secondary" aria-label="Download Word Lists as Excel File">Download Word Lists</button>
-        <button id="download-report" class="secondary" disabled aria-label="Download Report as Excel File">Download Report</button>
+        <button id="download" class="secondary" aria-label="Download Word Lists">Download Word Lists</button>
+        <button id="download-report" class="secondary" disabled aria-label="Download Report">Download Report</button>
         <button id="reset" class="reset" disabled>Reset Form</button>
       </div>
     </div>
@@ -1428,9 +1428,6 @@ yielding
       if (!latestReportRows) return;
       if (!checkXLSXAvailable()) return;
       
-      // Create workbook and worksheet
-      const wb = XLSX.utils.book_new();
-      
       // Create array of arrays for Excel
       const excelRows = [];
       excelRows.push(['Category', 'Term', 'Term Total', 'File', 'Count', 'Snippets']);
@@ -1456,6 +1453,8 @@ yielding
         });
       }
       
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(excelRows);
       
       // Set column widths for better readability
@@ -1497,6 +1496,7 @@ yielding
           // Build rich text array with bold formatting for matched terms
           const richText = [];
           const snippets = row.snips || [];
+          let hasBoldFormatting = false;
           
           snippets.forEach((snip, snipIdx) => {
             if (snipIdx > 0) {
@@ -1506,13 +1506,16 @@ yielding
             const snippetPlain = String(snip.plain || '').replace(/\s+/g, ' ').trim();
             
             // If we have match information, apply bold formatting
-            if (snip.matchText && snip.relativeStart !== undefined && snip.relativeEnd !== undefined) {
+            if (snip.matchText && typeof snip.relativeStart === 'number' && typeof snip.relativeEnd === 'number') {
               const before = snippetPlain.slice(0, snip.relativeStart);
               const match = snippetPlain.slice(snip.relativeStart, snip.relativeEnd);
               const after = snippetPlain.slice(snip.relativeEnd);
               
               if (before) richText.push({ t: before });
-              if (match) richText.push({ t: match, s: { font: { bold: true } } });
+              if (match) {
+                richText.push({ t: match, s: { font: { bold: true } } });
+                hasBoldFormatting = true;
+              }
               if (after) richText.push({ t: after });
             } else {
               // Fallback: just add the plain text without formatting
@@ -1521,7 +1524,7 @@ yielding
           });
           
           // Only apply rich text if we have formatting to apply
-          if (richText.length > 0 && richText.some(rt => rt.s && rt.s.font && rt.s.font.bold)) {
+          if (richText.length > 0 && hasBoldFormatting) {
             ws[snippetCellAddress].t = 's'; // Set cell type to string
             ws[snippetCellAddress].r = richText;
             delete ws[snippetCellAddress].v; // Remove plain value when using rich text
