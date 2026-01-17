@@ -95,8 +95,8 @@
       </div>
       <div class="check-actions">
         <button id="go" class="primary">Analyze Files</button>
-        <button id="download" class="secondary">Download Word Lists</button>
-        <button id="download-report" class="secondary" disabled>Download Report</button>
+        <button id="download" class="secondary">Download Word Lists (Excel)</button>
+        <button id="download-report" class="secondary" disabled>Download Report (Excel)</button>
         <button id="reset" class="reset" disabled>Reset Form</button>
       </div>
     </div>
@@ -1384,36 +1384,43 @@ yielding
         .map(term => capitalizeFirstLetter(term))
         .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
       
-      const csvRows = [];
+      // Create array of arrays for Excel
+      const excelRows = [];
       const headers = ['Administration-Flagged Words & Phrases', 'Indicators of Artificial Intelligence Use'];
-      csvRows.push(headers);
+      excelRows.push(headers);
       const maxLen = Math.max(sortedAdminTerms.length, sortedAiTerms.length);
       for (let i = 0; i < maxLen; i++) {
-        csvRows.push([
+        excelRows.push([
           sortedAdminTerms[i] || '',
           sortedAiTerms[i] || ''
         ]);
       }
-      const csvContent = csvRows
-        .map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(','))
-        .join('\r\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'keyword-lists.csv';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(excelRows);
+      
+      // Set column widths for better readability
+      ws['!cols'] = [
+        { wch: 45 }, // Administration-Flagged Words & Phrases
+        { wch: 45 }  // Indicators of Artificial Intelligence Use
+      ];
+      
+      XLSX.utils.book_append_sheet(wb, ws, 'Keyword Lists');
+      
+      // Generate Excel file and trigger download
+      XLSX.writeFile(wb, 'keyword-lists.xlsx');
     });
 
     downloadReportBtn.addEventListener('click', () => {
       if (!latestReportRows) return;
-      const csvRows = [];
-      csvRows.push(['Category', 'Term', 'Term Total', 'File', 'Count', 'Snippets']);
+      
+      // Create array of arrays for Excel
+      const excelRows = [];
+      excelRows.push(['Category', 'Term', 'Term Total', 'File', 'Count', 'Snippets']);
+      
       if (latestReportRows.length === 0) {
-        csvRows.push(['No matches found', '', '', '', '', '']);
+        excelRows.push(['No matches found', '', '', '', '', '']);
       } else {
         latestReportRows.forEach(row => {
           const snippetText = (row.snips || [])
@@ -1422,7 +1429,7 @@ yielding
             .join(' | ');
           const groupInfo = row.group ? RESULT_GROUP_LOOKUP[row.group] : null;
           const sourceHeading = groupInfo ? groupInfo.heading : (row.group || '');
-          csvRows.push([
+          excelRows.push([
             sourceHeading,
             row.term,
             row.total ?? '',
@@ -1432,18 +1439,25 @@ yielding
           ]);
         });
       }
-      const csvContent = csvRows
-        .map(row => row.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(','))
-        .join('\r\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'keyword-report.csv';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(excelRows);
+      
+      // Set column widths for better readability
+      ws['!cols'] = [
+        { wch: 45 }, // Category
+        { wch: 25 }, // Term
+        { wch: 12 }, // Term Total
+        { wch: 25 }, // File
+        { wch: 10 }, // Count
+        { wch: 60 }  // Snippets
+      ];
+      
+      XLSX.utils.book_append_sheet(wb, ws, 'Keyword Report');
+      
+      // Generate Excel file and trigger download
+      XLSX.writeFile(wb, 'keyword-report.xlsx');
     });
   </script>
 </body>
