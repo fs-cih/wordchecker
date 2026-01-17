@@ -1504,19 +1504,31 @@ yielding
             }
             
             // If we have match information, apply bold formatting
-            if (snip.matchText && typeof snip.relativeStart === 'number' && typeof snip.relativeEnd === 'number') {
+            if (snip.matchText && 
+                typeof snip.relativeStart === 'number' && 
+                typeof snip.relativeEnd === 'number' &&
+                snip.relativeStart >= 0 &&
+                snip.relativeEnd > snip.relativeStart) {
               // Use original plain text without normalization to preserve match positions
               const snippetPlain = String(snip.plain || '');
-              const before = snippetPlain.slice(0, snip.relativeStart);
-              const match = snippetPlain.slice(snip.relativeStart, snip.relativeEnd);
-              const after = snippetPlain.slice(snip.relativeEnd);
               
-              if (before) richText.push({ t: before });
-              if (match) {
-                richText.push({ t: match, s: { font: { bold: true } } });
-                hasBoldFormatting = true;
+              // Ensure positions are within bounds
+              if (snip.relativeEnd <= snippetPlain.length) {
+                const before = snippetPlain.slice(0, snip.relativeStart);
+                const match = snippetPlain.slice(snip.relativeStart, snip.relativeEnd);
+                const after = snippetPlain.slice(snip.relativeEnd);
+                
+                if (before) richText.push({ t: before });
+                if (match) {
+                  richText.push({ t: match, s: { font: { bold: true } } });
+                  hasBoldFormatting = true;
+                }
+                if (after) richText.push({ t: after });
+              } else {
+                // Positions out of bounds, fallback to plain text
+                const snippetPlain = String(snip.plain || '').replace(/\s+/g, ' ').trim();
+                richText.push({ t: snippetPlain });
               }
-              if (after) richText.push({ t: after });
             } else {
               // Fallback: normalize whitespace for plain text without formatting
               const snippetPlain = String(snip.plain || '').replace(/\s+/g, ' ').trim();
