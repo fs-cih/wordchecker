@@ -95,8 +95,8 @@
       </div>
       <div class="check-actions">
         <button id="go" class="primary">Analyze Files</button>
-        <button id="download" class="secondary">Download Word Lists (Excel)</button>
-        <button id="download-report" class="secondary" disabled>Download Report (Excel)</button>
+        <button id="download" class="secondary" aria-label="Download Word Lists as Excel File">Download Word Lists (Excel)</button>
+        <button id="download-report" class="secondary" disabled aria-label="Download Report as Excel File">Download Report (Excel)</button>
         <button id="reset" class="reset" disabled>Reset Form</button>
       </div>
     </div>
@@ -1369,6 +1369,12 @@ yielding
       latestReportRows = null;
     });
     downloadBtn.addEventListener('click', () => {
+      // Check if XLSX library is available
+      if (typeof XLSX === 'undefined') {
+        alert('Excel export functionality is currently unavailable. Please refresh the page and try again.');
+        return;
+      }
+      
       // Helper function to capitalize first letter of a word
       const capitalizeFirstLetter = (word) => {
         if (!word || word.length === 0) return word;
@@ -1414,6 +1420,12 @@ yielding
 
     downloadReportBtn.addEventListener('click', () => {
       if (!latestReportRows) return;
+      
+      // Check if XLSX library is available
+      if (typeof XLSX === 'undefined') {
+        alert('Excel export functionality is currently unavailable. Please refresh the page and try again.');
+        return;
+      }
       
       // Create array of arrays for Excel
       const excelRows = [];
