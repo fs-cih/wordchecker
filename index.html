@@ -1511,12 +1511,15 @@ yielding
                 snip.relativeEnd > snip.relativeStart) {
               // Use original plain text without normalization to preserve match positions
               const snippetPlain = String(snip.plain || '');
-              
+              const leadingOffset = snippetPlain.startsWith('…') ? 1 : 0;
+              const adjustedStart = snip.relativeStart + leadingOffset;
+              const adjustedEnd = snip.relativeEnd + leadingOffset;
+
               // Ensure positions are within bounds
-              if (snip.relativeEnd <= snippetPlain.length) {
-                const before = snippetPlain.slice(0, snip.relativeStart);
-                const match = snippetPlain.slice(snip.relativeStart, snip.relativeEnd);
-                const after = snippetPlain.slice(snip.relativeEnd);
+              if (adjustedEnd <= snippetPlain.length) {
+                const before = snippetPlain.slice(0, adjustedStart);
+                const match = snippetPlain.slice(adjustedStart, adjustedEnd);
+                const after = snippetPlain.slice(adjustedEnd);
                 
                 if (before) richText.push({ t: before });
                 if (match) {
@@ -1539,9 +1542,7 @@ yielding
           // Only apply rich text if we have formatting to apply
           if (richText.length > 0 && hasBoldFormatting) {
             ws[snippetCellAddress].t = 's'; // Set cell type to string
-            ws[snippetCellAddress].r = richText;
-            delete ws[snippetCellAddress].v; // Remove plain value when using rich text
-            delete ws[snippetCellAddress].w; // Remove formatted value
+            ws[snippetCellAddress].v = { richtext: richText };
           }
         });
       }
