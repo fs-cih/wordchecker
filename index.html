@@ -1371,7 +1371,7 @@ yielding
     downloadBtn.addEventListener('click', () => {
       // Helper function to capitalize first letter of a word
       const capitalizeFirstLetter = (word) => {
-        if (!word) return word;
+        if (!word || word.length === 0) return word;
         return word.charAt(0).toUpperCase() + word.slice(1);
       };
       
