@@ -1193,7 +1193,7 @@ yielding
         const after = chunk.slice(relativeEnd);
         const html = `…${escapeHTML(before)}<mark>${escapeHTML(matchText)}</mark>${escapeHTML(after)}…`;
         const plain = `…${chunk}…`;
-        return { html, plain, matchText, relativeStart: relativeStart + 1, relativeEnd: relativeEnd + 1 };
+        return { html, plain, matchText, relativeStart, relativeEnd };
       });
     }
 
