@@ -1485,6 +1485,68 @@ yielding
         }
       }
       
+      // Apply bold formatting to matched terms in Column F (Snippets)
+      if (latestReportRows.length > 0) {
+        latestReportRows.forEach((row, idx) => {
+          const rowIndex = idx + 1; // +1 because of header row
+          const snippetCellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: 5 }); // Column F (index 5)
+          
+          if (!ws[snippetCellAddress]) return;
+          
+          // Build rich text array with bold formatting for matched terms
+          const richText = [];
+          const snippets = row.snips || [];
+          let hasBoldFormatting = false;
+          
+          snippets.forEach((snip, snipIdx) => {
+            if (snipIdx > 0) {
+              richText.push({ t: ' | ' });
+            }
+            
+            // If we have match information, apply bold formatting
+            if (snip.matchText && 
+                typeof snip.relativeStart === 'number' && 
+                typeof snip.relativeEnd === 'number' &&
+                snip.relativeStart >= 0 &&
+                snip.relativeEnd > snip.relativeStart) {
+              // Use original plain text without normalization to preserve match positions
+              const snippetPlain = String(snip.plain || '');
+              const leadingOffset = snippetPlain.startsWith('…') ? 1 : 0;
+              const adjustedStart = snip.relativeStart + leadingOffset;
+              const adjustedEnd = snip.relativeEnd + leadingOffset;
+
+              // Ensure positions are within bounds
+              if (adjustedEnd <= snippetPlain.length) {
+                const before = snippetPlain.slice(0, adjustedStart);
+                const match = snippetPlain.slice(adjustedStart, adjustedEnd);
+                const after = snippetPlain.slice(adjustedEnd);
+                
+                if (before) richText.push({ t: before });
+                if (match) {
+                  richText.push({ t: match, s: { font: { bold: true } } });
+                  hasBoldFormatting = true;
+                }
+                if (after) richText.push({ t: after });
+              } else {
+                // Positions out of bounds, fallback to plain text
+                const snippetPlain = String(snip.plain || '').replace(/\s+/g, ' ').trim();
+                richText.push({ t: snippetPlain });
+              }
+            } else {
+              // Fallback: normalize whitespace for plain text without formatting
+              const snippetPlain = String(snip.plain || '').replace(/\s+/g, ' ').trim();
+              richText.push({ t: snippetPlain });
+            }
+          });
+          
+          // Only apply rich text if we have formatting to apply
+          if (richText.length > 0 && hasBoldFormatting) {
+            ws[snippetCellAddress].t = 's'; // Set cell type to string
+            ws[snippetCellAddress].v = { richtext: richText };
+          }
+        });
+      }
+      
       XLSX.utils.book_append_sheet(wb, ws, 'Keyword Report');
       
       // Generate Excel file and trigger download
