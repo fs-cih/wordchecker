@@ -95,8 +95,8 @@
       </div>
       <div class="check-actions">
         <button id="go" class="primary">Analyze Files</button>
-        <button id="download" class="secondary" aria-label="Download Word Lists as Excel File">Download Word Lists (Excel)</button>
-        <button id="download-report" class="secondary" disabled aria-label="Download Report as Excel File">Download Report (Excel)</button>
+        <button id="download" class="secondary" aria-label="Download Word Lists as Excel File">Download Word Lists</button>
+        <button id="download-report" class="secondary" disabled aria-label="Download Report as Excel File">Download Report</button>
         <button id="reset" class="reset" disabled>Reset Form</button>
       </div>
     </div>
@@ -1193,7 +1193,7 @@ yielding
         const after = chunk.slice(relativeEnd);
         const html = `…${escapeHTML(before)}<mark>${escapeHTML(matchText)}</mark>${escapeHTML(after)}…`;
         const plain = `…${chunk}…`;
-        return { html, plain };
+        return { html, plain, matchText, relativeStart: relativeStart + 1, relativeEnd: relativeEnd + 1 };
       });
     }
 
@@ -1428,6 +1428,9 @@ yielding
       if (!latestReportRows) return;
       if (!checkXLSXAvailable()) return;
       
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new();
+      
       // Create array of arrays for Excel
       const excelRows = [];
       excelRows.push(['Category', 'Term', 'Term Total', 'File', 'Count', 'Snippets']);
@@ -1453,19 +1456,79 @@ yielding
         });
       }
       
-      // Create workbook and worksheet
-      const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(excelRows);
       
       // Set column widths for better readability
       ws['!cols'] = [
-        { wch: 45 }, // Category
+        { wch: 30 }, // Category (Column A - changed from 45 to 30)
         { wch: 25 }, // Term
         { wch: 12 }, // Term Total
         { wch: 25 }, // File
         { wch: 10 }, // Count
-        { wch: 60 }  // Snippets
+        { wch: 100 }  // Snippets (Column F - changed from 60 to 100)
       ];
+      
+      // Apply cell styling: top alignment and text wrapping for all cells
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!ws[cellAddress]) continue;
+          
+          // Initialize cell style if it doesn't exist
+          if (!ws[cellAddress].s) ws[cellAddress].s = {};
+          
+          // Set alignment: top and wrap text
+          ws[cellAddress].s.alignment = {
+            vertical: 'top',
+            wrapText: true
+          };
+        }
+      }
+      
+      // Apply bold formatting to matched terms in Column F (Snippets)
+      if (latestReportRows.length > 0) {
+        latestReportRows.forEach((row, idx) => {
+          const rowIndex = idx + 1; // +1 because of header row
+          const snippetCellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: 5 }); // Column F (index 5)
+          
+          if (!ws[snippetCellAddress]) return;
+          
+          // Build rich text array with bold formatting for matched terms
+          const richText = [];
+          const snippets = row.snips || [];
+          
+          snippets.forEach((snip, snipIdx) => {
+            if (snipIdx > 0) {
+              richText.push({ t: ' | ' });
+            }
+            
+            const snippetPlain = String(snip.plain || '').replace(/\s+/g, ' ').trim();
+            
+            // If we have match information, apply bold formatting
+            if (snip.matchText && snip.relativeStart !== undefined && snip.relativeEnd !== undefined) {
+              const before = snippetPlain.slice(0, snip.relativeStart);
+              const match = snippetPlain.slice(snip.relativeStart, snip.relativeEnd);
+              const after = snippetPlain.slice(snip.relativeEnd);
+              
+              if (before) richText.push({ t: before });
+              if (match) richText.push({ t: match, s: { font: { bold: true } } });
+              if (after) richText.push({ t: after });
+            } else {
+              // Fallback: just add the plain text without formatting
+              richText.push({ t: snippetPlain });
+            }
+          });
+          
+          // Only apply rich text if we have formatting to apply
+          if (richText.length > 0 && richText.some(rt => rt.s && rt.s.font && rt.s.font.bold)) {
+            ws[snippetCellAddress].t = 's'; // Set cell type to string
+            ws[snippetCellAddress].r = richText;
+            delete ws[snippetCellAddress].v; // Remove plain value when using rich text
+            delete ws[snippetCellAddress].w; // Remove formatted value
+          }
+        });
+      }
       
       XLSX.utils.book_append_sheet(wb, ws, 'Keyword Report');
       
