@@ -1541,8 +1541,11 @@ yielding
           
           // Only apply rich text if we have formatting to apply
           if (richText.length > 0 && hasBoldFormatting) {
+            // Extract plain text value from richText array for the v property
+            const plainTextValue = richText.map(rt => rt.t || '').join('');
             ws[snippetCellAddress].t = 's'; // Set cell type to string
-            ws[snippetCellAddress].v = { richtext: richText };
+            ws[snippetCellAddress].v = plainTextValue; // Plain text version
+            ws[snippetCellAddress].r = richText; // Rich text formatting
           }
         });
       }
