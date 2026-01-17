@@ -1503,10 +1503,10 @@ yielding
               richText.push({ t: ' | ' });
             }
             
-            const snippetPlain = String(snip.plain || '').replace(/\s+/g, ' ').trim();
-            
             // If we have match information, apply bold formatting
             if (snip.matchText && typeof snip.relativeStart === 'number' && typeof snip.relativeEnd === 'number') {
+              // Use original plain text without normalization to preserve match positions
+              const snippetPlain = String(snip.plain || '');
               const before = snippetPlain.slice(0, snip.relativeStart);
               const match = snippetPlain.slice(snip.relativeStart, snip.relativeEnd);
               const after = snippetPlain.slice(snip.relativeEnd);
@@ -1518,7 +1518,8 @@ yielding
               }
               if (after) richText.push({ t: after });
             } else {
-              // Fallback: just add the plain text without formatting
+              // Fallback: normalize whitespace for plain text without formatting
+              const snippetPlain = String(snip.plain || '').replace(/\s+/g, ' ').trim();
               richText.push({ t: snippetPlain });
             }
           });
